@@ -30,6 +30,14 @@ VALVE_1 = 19                # First tank control pin
 VALVE_2 = 21                # Second tank control pin
 VALVE_3 = 23                # Third tank control pin
 
+"""
+main_valve = 13 (BOARD) -> 27 (BCM)
+bleed_valve = 15 (BOARD) -> 22 (BCM)
+valve1 = 19 (BOARD) -> 10 (BCM)
+valve2 = 21 (BOARD) -> 9 (BCM)
+valve3 = 23 (BOARD) -> 11 (BCM)
+"""
+
 
 import time
 
@@ -73,7 +81,8 @@ mprint.p("i2c initialized. Time: " + str(timeMS()) + " ms", output_log)
 
 # Init GPIO
 #   We do this before connecting to i2c devices because we want to make sure our valves are closed!
-GPIO.setmode(GPIO.BOARD)    # Use the board's physical pin numbers
+GPIO.setmode(GPIO.BCM)      # Use some made up BS numbers
+#GPIO.setmode(GPIO.BOARD)    # Use the board's physical pin numbers
 
 GPIO.setup(MAIN_VALVE, GPIO.OUT)
 GPIO.setup(BLEED_VALVE, GPIO.OUT)
@@ -160,6 +169,8 @@ GPIO.output(MAIN_VALVE, GPIO.HIGH)
 GPIO.output(BLEED_VALVE, GPIO.HIGH)
 
 
+# Close the GPIO setup
+GPIO.cleanup()
 
 # Close the serial port
 PI_ser.close()
