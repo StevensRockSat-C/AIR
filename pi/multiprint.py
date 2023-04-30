@@ -29,7 +29,7 @@ class MultiPrinter:
         except IOError as e:
             print("COULD NOT WRITE TO THE INPUT FILE! Error: {}".format(e))
             
-     def pform(self, message, tPlus, f):
+    def pform(self, message, tPlus, f):
         """
         message:    The message to print and write
         tPlus:      The mission tPlus
