@@ -1,3 +1,24 @@
+""" Run automatically with 
+    sudo bash -c 'python3 -u ~/Documents/AIR/jetson/runner.py |& tee ~/Documents/$(date +%s%3N)_GPU_log.txt' &
+    
+    Or use a system service
+        
+        [Unit]
+        Description=Benchmark Service
+
+        [Service]
+        Type=simple
+        Environment=PYTHONPATH=/home/rocksat/.local/lib/python3.6/site-packages
+        ExecStart=/bin/bash -c 'python3 -u /home/rocksat/Documents/AIR/jetson/runner.py |& tee /home/rocksat/Documents/$(date +%%s%%3N)_GPU_log.txt" &'
+
+        [Install]
+        WantedBy=multi-user.target
+        
+        
+        sudo systemctl daemon-reload
+        sudo systemctl enable benchmark-service.service
+"""
+
 # Settings
 DEFAULT_BOOT_TIME = 35000   # The estimated time to boot and run the beginnings of the script, in MS. Will be used only if RTC is not live
 
@@ -13,6 +34,7 @@ def main():
     
     aib = AIBenchmark(verbose_level=2)
     
+    print(str(time.time()) + " - Waiting for 120 second mark...")
     while get_uptime() < 120 - (DEFAULT_BOOT_TIME / 1000):
         pass
     
