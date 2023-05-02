@@ -187,7 +187,7 @@ def timeMS():
     """
     Returns system time to MS
     """
-    return timeMS()
+    return round(time.time()*1000)
 
 FIRST_ON_MS = timeMS() # Record the very first moment we are running the script
 TIME_LAUNCH_MS = -1
