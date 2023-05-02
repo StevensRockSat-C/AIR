@@ -174,7 +174,7 @@ class PressuresOBJ:
     def __init__(self, time_MS, TPlus_MS, canister_pressure, bleed_pressure, tank_1_pressure, tank_2_pressure, tank_3_pressure):
         self.time_MS = time_MS
         self.TPlus_MS = TPlus_MS
-        self.canister_pressure = time_MS
+        self.canister_pressure = canister_pressure
         self.bleed_pressure = bleed_pressure
         self.tank_1_pressure = tank_1_pressure
         self.tank_2_pressure = tank_2_pressure
@@ -349,15 +349,15 @@ def equalizeTanks():
         mprint.pform("Can't connect to two or more of the MPRLS, so we will not attempt to equalize the tanks. Connections - MPRLS3: " + str(not mprls_tank_3.cantConnect) + " MPRLS2: " + str(not mprls_tank_2.cantConnect) + " MPRLS1: " + str(not mprls_tank_1.cantConnect), rtc.getTPlusMS(), output_log)
         return False
     
-    if (pressures.tank_3_pressure > collection_3.driving_pressure * 0.9) and not mprls_tank_3.sampled:  # If the pressure in the 3rd tank is too big...
+    if (pressures.tank_3_pressure > collection_3.up_driving_pressure * 0.9) and not mprls_tank_3.sampled:  # If the pressure in the 3rd tank is too big...
         if pressures.tank_3_pressure < 900: # If the tank is holding *some* sort of vacuum, just not a good one...
-            if not mprls_tank_1.cantConnect and (pressures.tank_3_pressure + pressures.tank_1_pressure) / 2 < collection_3.driving_pressure * 0.9: # Let's equalize tank 1 and tank 3
+            if not mprls_tank_1.cantConnect and (pressures.tank_3_pressure + pressures.tank_1_pressure) / 2 < collection_3.up_driving_pressure * 0.9: # Let's equalize tank 1 and tank 3
                 valve_1.open()
                 valve_3.open()
                 time.sleep(0.1)
                 valve_3.close()
                 valve_1.close()
-            elif not mprls_tank_2.cantConnect and (pressures.tank_3_pressure + pressures.tank_2_pressure) / 2 < collection_3.driving_pressure * 0.9:
+            elif not mprls_tank_2.cantConnect and (pressures.tank_3_pressure + pressures.tank_2_pressure) / 2 < collection_3.up_driving_pressure * 0.9:
                 valve_2.open()
                 valve_3.open()
                 time.sleep(0.1)
@@ -368,9 +368,9 @@ def equalizeTanks():
         else: # Tank lost everything in the 5 days we waited. Mark it as dead
             tank_3.dead = True
             
-    if (pressures.tank_2_pressure > collection_2.driving_pressure * 0.9) and not mprls_tank_2.sampled:  # If the pressure in the 2nd tank is too big...
+    if (pressures.tank_2_pressure > collection_2.up_driving_pressure * 0.9) and not mprls_tank_2.sampled:  # If the pressure in the 2nd tank is too big...
         if pressures.tank_2_pressure < 900: # If the tank is holding *some* sort of vacuum, just not a good one...
-            if not mprls_tank_1.cantConnect and (pressures.tank_2_pressure + pressures.tank_1_pressure) / 2 < collection_2.driving_pressure * 0.9: # Let's equalize tank 1 and tank 2
+            if not mprls_tank_1.cantConnect and (pressures.tank_2_pressure + pressures.tank_1_pressure) / 2 < collection_2.up_driving_pressure * 0.9: # Let's equalize tank 1 and tank 2
                 valve_1.open()
                 valve_2.open()
                 time.sleep(0.1)
