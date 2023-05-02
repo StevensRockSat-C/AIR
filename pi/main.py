@@ -302,7 +302,6 @@ else:   # Bruh. No RTC on the line. Guess that's it.
     mprint.p("NO RTC!! Going to assume it's 35 seconds past launch", output_log)
     mprint.pform("T0: " + str(TIME_LAUNCH_MS) + " ms", rtc.getTPlusMS(), output_log)
 
-# TODO: This needs to account for any MPRLSs that didn't get initialized!
 def logPressures():
     """
     Get the pressures from every MPRLS and logs them to the CSV output
@@ -343,42 +342,65 @@ def equalizeTanks():
         Asseses the pressures of the tanks and makes necessary adjustments
     """
     
+    mprint.pform("Checking the pressures in the tanks for equalization...", rtc.getTPlusMS(), output_log)
+    
     pressures = logPressures()
     
     if (mprls_tank_3.cantConnect == True or mprls_tank_2.cantConnect == True) and mprls_tank_1.cantConnect == True: # Not enough pressure information to equalize the tanks
         mprint.pform("Can't connect to two or more of the MPRLS, so we will not attempt to equalize the tanks. Connections - MPRLS3: " + str(not mprls_tank_3.cantConnect) + " MPRLS2: " + str(not mprls_tank_2.cantConnect) + " MPRLS1: " + str(not mprls_tank_1.cantConnect), rtc.getTPlusMS(), output_log)
         return False
     
-    if (pressures.tank_3_pressure > collection_3.up_driving_pressure * 0.9) and not mprls_tank_3.sampled:  # If the pressure in the 3rd tank is too big...
+    if (pressures.tank_3_pressure > collection_3.up_driving_pressure * 0.9) and not tank_3.sampled:  # If the pressure in the 3rd tank is too big...
+        mprint.pform("Pressure in Tank 3 is too large for collection!", rtc.getTPlusMS(), output_log)
+        
         if pressures.tank_3_pressure < 900: # If the tank is holding *some* sort of vacuum, just not a good one...
+            mprint.pform("Pressure in Tank 3 is below atmospheric", rtc.getTPlusMS(), output_log)
+            
             if not mprls_tank_1.cantConnect and (pressures.tank_3_pressure + pressures.tank_1_pressure) / 2 < collection_3.up_driving_pressure * 0.9: # Let's equalize tank 1 and tank 3
+                mprint.pform("Pressure in Tank 3 can be equalized with Tank 1. Let's do that", rtc.getTPlusMS(), output_log)
                 valve_1.open()
                 valve_3.open()
+                mprint.pform("VALVE_1 and VALVE_3 pulled HIGH", rtc.getTPlusMS(), output_log)
                 time.sleep(0.1)
                 valve_3.close()
                 valve_1.close()
+                mprint.pform("VALVE_1 and VALVE_3 pulled LOW", rtc.getTPlusMS(), output_log)
             elif not mprls_tank_2.cantConnect and (pressures.tank_3_pressure + pressures.tank_2_pressure) / 2 < collection_3.up_driving_pressure * 0.9:
+                mprint.pform("Pressure in Tank 3 can be equalized with Tank 2. Let's do that", rtc.getTPlusMS(), output_log)
                 valve_2.open()
                 valve_3.open()
+                mprint.pform("VALVE_2 and VALVE_3 pulled HIGH", rtc.getTPlusMS(), output_log)
                 time.sleep(0.1)
                 valve_3.close()
                 valve_2.close()
+                mprint.pform("VALVE_2 and VALVE_3 pulled LOW", rtc.getTPlusMS(), output_log)
             else:
+                mprint.pform("Pressure in Tank 3 can't be equalized. We'll sample it on the way down", rtc.getTPlusMS(), output_log)
                 collection_3.sample_upwards = False
         else: # Tank lost everything in the 5 days we waited. Mark it as dead
+            mprint.pform("Pressure in Tank 3 is atmospheric. Marked it as dead", rtc.getTPlusMS(), output_log)
             tank_3.dead = True
             
-    if (pressures.tank_2_pressure > collection_2.up_driving_pressure * 0.9) and not mprls_tank_2.sampled:  # If the pressure in the 2nd tank is too big...
+    if (pressures.tank_2_pressure > collection_2.up_driving_pressure * 0.9) and not tank_2.sampled:  # If the pressure in the 2nd tank is too big...
+        mprint.pform("Pressure in Tank 2 is too large for collection!", rtc.getTPlusMS(), output_log)
+        
         if pressures.tank_2_pressure < 900: # If the tank is holding *some* sort of vacuum, just not a good one...
+            mprint.pform("Pressure in Tank 2 is below atmospheric", rtc.getTPlusMS(), output_log)
+            
             if not mprls_tank_1.cantConnect and (pressures.tank_2_pressure + pressures.tank_1_pressure) / 2 < collection_2.up_driving_pressure * 0.9: # Let's equalize tank 1 and tank 2
+                mprint.pform("Pressure in Tank 2 can be equalized with Tank 1. Let's do that", rtc.getTPlusMS(), output_log)    
                 valve_1.open()
                 valve_2.open()
+                mprint.pform("VALVE_1 and VALVE_2 pulled HIGH", rtc.getTPlusMS(), output_log)
                 time.sleep(0.1)
                 valve_2.close()
                 valve_1.close()
+                mprint.pform("VALVE_1 and VALVE_2 pulled LOW", rtc.getTPlusMS(), output_log)
             else: # Can't equalize the tank, so we'll grab this sample on the way down
+                mprint.pform("Pressure in Tank 2 can't be equalized. We'll sample it on the way down", rtc.getTPlusMS(), output_log)
                 collection_2.sample_upwards = False
         else: # Tank lost everything in the 5 days we waited. Mark it as dead
+            mprint.pform("Pressure in Tank 2 is atmospheric. Marked it as dead", rtc.getTPlusMS(), output_log)
             tank_2.dead = True
     
 equalizeTanks()
