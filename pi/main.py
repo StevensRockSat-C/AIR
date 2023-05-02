@@ -23,7 +23,32 @@
 import serial
 import RPi.GPIO as GPIO
 
-# SETTINGS
+class Collection:
+
+    """
+        Everything related to a collection timing. All provided times are in ms
+        
+        up_start_time: The T+ that this collection should happen if sampling on the way up
+        down_start_time: The T+ that this collection should happen if sampling on the way up
+        
+        up_duration: The time that the valves should remain open for the upwards collection
+        down_duration: The time that the valves should remain open for downwards collection
+        bleed_duration: How long we should bleed the lines for before collecting this sample
+        
+        driving_pressure: The hPa we expect this tank to get
+    """
+    
+    def __init__(self, up_start_time, down_start_time, up_duration, down_duration, bleed_duration, driving_pressure):
+        self.up_start_time = up_start_time
+        self.down_start_time = down_start_time
+        self.up_duration = up_duration
+        self.down_duration = down_duration
+        self.bleed_duration = bleed_duration
+        self.driving_pressure = driving_pressure
+        self.sampled = False
+        self.sample_upwards = True  # Set to False if this tank needs to be sampled on the way down
+
+# ---- SETTINGS ----
 PORT = "/dev/serial0"       # Serial Port
 BAUD_RATE = 115200          # Serial baud rate
 
@@ -36,6 +61,11 @@ VALVE_1_PIN = 10            # First tank control pin
 VALVE_2_PIN = 9             # Second tank control pin
 VALVE_3_PIN = 11            # Third tank control pin
 
+# Setup our Colleciton objects
+collection_1 = Collection(40305, 100, -1, -1, 95, 1200)
+collection_2 = Collection(70000, 200, 290000, 200, 95, 700)
+collection_3 = Collection(90000, 300, 230000, 300, 95, 500)
+
 """
 VALVE_MAIN_PIN = 13 (BOARD) -> 27 (BCM)
 VALVE_BLEED_PIN = 15 (BOARD) -> 22 (BCM)
@@ -44,25 +74,6 @@ VALVE_2_PIN = 21 (BOARD) -> 9 (BCM)
 VALVE_3_PIN = 23 (BOARD) -> 11 (BCM)
 """
 
-class Collection:
-
-    """
-        Everything related to a collection timing. All provided times are in ms
-        
-        up_start_time: The T+ that this collection should happen if sampling on the way up
-        down_start_time: The T+ that this collection should happen if sampling on the way up
-        up_duration: The time that the valves should remain open for the upwards collection
-        down_duration: The time that the valves should remain open for downwards collection
-    """
-    
-    def __init__(self, up_start_time, down_start_time, up_duration, down_duration, bleed_duration):
-        self.up_start_time = up_start_time
-        self.down_start_time = down_start_time
-        self.up_duration = up_duration
-        self.down_duration = down_duration
-        self.bleed_duration = bleed_duration
-        self.sampled = False
-        self.sample_upwards = True  # Set to False if this tank needs to be sampled on the way down
 
 class Valve:
 
@@ -109,6 +120,65 @@ class Tank:
     def close(self):
         self.valve.close()
 
+
+class WrapMPRLS:
+
+    """
+        Wrap the MPRLS library to prevent misreads
+        
+        multiplexerLine: The multiplexed i2c line. If not specified, this object will become dormant
+    """
+    
+    def __init__(self, multiplexerLine=False):
+        self.cantConnect = False
+        self.mprls = False
+        
+        if multiplexerLine == False: # No multiplexer defined, therefore this is a blank object
+            self.cantConnect = True
+            return
+        
+        try:
+            self.mprls = adafruit_mprls.MPRLS(multiplexerLine, psi_min=0, psi_max=25)
+        except:
+            self.cantConnect = True
+        
+    def _get_pressure(self):
+        if self.cantConnect == True: return -1
+        return self.mprls.pressure
+
+    def _set_pressure(self, value):
+        pass
+
+    def _del_pressure(self):
+        pass
+        
+    """
+        Acts as a wrapper for the pressure property of the standard MPRLS
+    """
+    pressure = property(
+        fget=_get_pressure,
+        fset=_set_pressure,
+        fdel=_del_pressure,
+        doc="The pressure of the MPRLS or -1 if we can't connect to it"
+    )
+
+
+class Pressures:
+    
+    """
+        Gather pressure information nicely
+    """
+    
+    def __init__(self, time_MS, TPlus_MS, canister_pressure, bleed_pressure, tank_1_pressure, tank_2_pressure, tank_3_pressure):
+        self.time_MS = time_MS
+        self.TPlus_MS = TPlus_MS
+        self.canister_pressure = time_MS
+        self.bleed_pressure = bleed_pressure
+        self.tank_1_pressure = tank_1_pressure
+        self.tank_2_pressure = tank_2_pressure
+        self.tank_3_pressure = tank_3_pressure
+
+
 import time
 
 def timeMS():
@@ -131,7 +201,7 @@ output_log = open(str(time.time()) + '_output.txt', 'x') # Our main output file 
 output_pressures = open(str(time.time()) + '_pressures.csv', 'x') # Our main output file will be named as $time_output.txt
 
 mprint.p("time & sys imported, files open. Time: " + str(timeMS()) + " ms\tFirst script on: " + str(FIRST_ON_MS) + " ms", output_log)
-mprint.w("Time (ms),T+ (ms),Pressure Canister (hPa),Pressure Valve 1 (hpa),Pressure Valve 2 (hPa),Pressure Valve 3 (hpa)", output_pressures) # Set up our CSV headers
+mprint.w("Time (ms),T+ (ms),Pressure Canister (hPa),Pressure Bleed (hPa),Pressure Valve 1 (hPa),Pressure Valve 2 (hPa),Pressure Valve 3 (hPa)", output_pressures) # Set up our CSV headers
 
 # Sensors
 from adafruit_extended_bus import ExtendedI2C as I2C
@@ -172,36 +242,37 @@ try:
 except:
     mprint.p("COULD NOT CONNECT TO MULTIPLEXER!! Time: " + str(timeMS()) + " ms", output_log)
 
-mprls_canister = False
-mprls_bleed = False
-mprls_tank_1 = False
-mprls_tank_2 = False
-mprls_tank_3 = False
+# Create blank objects
+mprls_canister = WrapMPRLS()
+mprls_bleed = WrapMPRLS()
+mprls_tank_1 = WrapMPRLS()
+mprls_tank_2 = WrapMPRLS()
+mprls_tank_3 = WrapMPRLS()
 
 if multiplex != False:
-    try: # Canister MPRLS
-        mprls_canister = adafruit_mprls.MPRLS(multiplex[0], psi_min=0, psi_max=25)
-    except:
+    # Canister MPRLS
+    mprls_canister = WrapMPRLS(multiplexerLine=multiplex[0])
+    if mprls_canister.cantConnect:
         mprint.p("COULD NOT CONNECT TO CANISTER MPRLS!! Time: " + str(timeMS()) + " ms", output_log)
 
-    try: # Bleed Tank MPRLS
-        mprls_bleed = adafruit_mprls.MPRLS(multiplex[1], psi_min=0, psi_max=25)
-    except:
+    # Bleed Tank MPRLS
+    mprls_bleed = WrapMPRLS(multiplexerLine=multiplex[1])
+    if mprls_bleed.cantConnect:
         mprint.p("COULD NOT CONNECT TO BLEED MPRLS!! Time: " + str(timeMS()) + " ms", output_log)
 
-    try: # Tank 1 MPRLS
-        mprls_tank_1 = adafruit_mprls.MPRLS(multiplex[2], psi_min=0, psi_max=25)
-    except:
+    # Tank 1 MPRLS
+    mprls_tank_1 = WrapMPRLS(multiplexerLine=multiplex[2])
+    if mprls_tank_1.cantConnect:
         mprint.p("COULD NOT CONNECT TO TANK 1 MPRLS!! Time: " + str(timeMS()) + " ms", output_log)
 
-    try: # Tank 2 MPRLS
-        mprls_tank_2 = adafruit_mprls.MPRLS(multiplex[3], psi_min=0, psi_max=25)
-    except:
+    # Tank 2 MPRLS
+    mprls_tank_2 = WrapMPRLS(multiplexerLine=multiplex[3])
+    if mprls_tank_2.cantConnect:
         mprint.p("COULD NOT CONNECT TO TANK 2 MPRLS!! Time: " + str(timeMS()) + " ms", output_log)
 
-    try: # Tank 3 MPRLS
-        mprls_tank_3 = adafruit_mprls.MPRLS(multiplex[4], psi_min=0, psi_max=25)
-    except:
+    # Tank 3 MPRLS
+    mprls_tank_3 = WrapMPRLS(multiplexerLine=multiplex[4])
+    if mprls_tank_3.cantConnect:
         mprint.p("COULD NOT CONNECT TO TANK 3 MPRLS!! Time: " + str(timeMS()) + " ms", output_log)
     
     mprint.p("MPRLS' connected. Time: " + str(timeMS()) + " ms", output_log)
@@ -238,13 +309,14 @@ def logPressures():
             System Time (ms),
             T+ (ms),
             Canister Pressure (hpa),
+            Bleed Pressure (hpa),
             Tank 1 Pressure (hpa),
             Tank 2 Pressure (hpa),
             Tank 3 Pressure (hpa)
         ]
     """
-    pressures = [timeMS(), rtc.getTPlusMS(), mprls_canister.pressure, mprls_tank_1.pressure, mprls_tank_2.pressure, mprls_tank_3.pressure]
-    mprint.p(str(pressures[0]) + "," + str(pressures[1]) + "," + str(pressures[2]) + "," + str(pressures[3]) + "," + str(pressures[4]) + "," + str(pressures[5]), output_pressures)
+    pressures = Pressures(timeMS(), rtc.getTPlusMS(), mprls_canister.pressure, mprls_bleed.pressure, mprls_tank_1.pressure, mprls_tank_2.pressure, mprls_tank_3.pressure)
+    mprint.p(str(pressures.time_MS) + "," + str(pressures.TPlus_MS) + "," + str(pressures.canister_pressure) + "," + str(pressures.bleed_pressure) + "," + str(pressures.tank_1_pressure) + "," + str(pressures.tank_2_pressure) + "," + str(pressures.tank_3_pressure), output_pressures)
     return pressures
 
 # Get our first pressure readings
@@ -262,28 +334,101 @@ tank_2 = Tank(valve_2)
 tank_3 = Tank(valve_3)
 tank_bleed = Tank(valve_bleed)
 
-# Setup our Colleciton objects
-collection_1 = Collection(40305, 100, -1, -1, 95)
-collection_2 = Collection(60000, 200, 290000, 200, 95)
-collection_3 = Collection(80000, 300, 230000, 300, 95)
-
 
 # FUN BITS HERE
+
+def equalizeTanks():
+    """
+        Asseses the pressures of the tanks and makes necessary adjustments
+        
+        TODO: Ensure we DO NOT vent a sampled tank!
+    """
+    
+    pressures = logPressures()
+    
+    if (mprls_tank_3.cantConnect == True or mprls_tank_2.cantConnect == True) and mprls_tank_1.cantConnect == True: # Not enough pressure information to equalize the tanks
+        mprint.pform("Can't connect to two or more of the MPRLS, so we will not attempt to equalize the tanks. Connections - MPRLS3: " + str(not mprls_tank_3.cantConnect) + " MPRLS2: " + str(not mprls_tank_2.cantConnect) + " MPRLS1: " + str(not mprls_tank_1.cantConnect), rtc.getTPlusMS(), output_log)
+        return False
+    
+    if (pressures.tank_3_pressure > collection_3.driving_pressure * 0.9) and not mprls_tank_3.sampled:  # If the pressure in the 3rd tank is too big...
+        if pressures.tank_3_pressure < 900: # If the tank is holding *some* sort of vacuum, just not a good one...
+            if not mprls_tank_1.cantConnect and (pressures.tank_3_pressure + pressures.tank_1_pressure) / 2 < collection_3.driving_pressure * 0.9: # Let's equalize tank 1 and tank 3
+                valve_1.open()
+                valve_3.open()
+                time.sleep(0.1)
+                valve_3.close()
+                valve_1.close()
+            elif not mprls_tank_2.cantConnect and (pressures.tank_3_pressure + pressures.tank_2_pressure) / 2 < collection_3.driving_pressure * 0.9:
+                valve_2.open()
+                valve_3.open()
+                time.sleep(0.1)
+                valve_3.close()
+                valve_2.close()
+        else: # Tank lost everything in the 5 days we waited. Mark it as dead
+            tank_3.dead = True
+            
+    if (pressures.tank_2_pressure > collection_2.driving_pressure * 0.9) and not mprls_tank_2.sampled:  # If the pressure in the 2nd tank is too big...
+        if pressures.tank_2_pressure < 900: # If the tank is holding *some* sort of vacuum, just not a good one...
+            if not mprls_tank_1.cantConnect and (pressures.tank_2_pressure + pressures.tank_1_pressure) / 2 < collection_2.driving_pressure * 0.9: # Let's equalize tank 1 and tank 2
+                valve_1.open()
+                valve_2.open()
+                time.sleep(0.1)
+                valve_2.close()
+                valve_1.close()
+        else: # Tank lost everything in the 5 days we waited. Mark it as dead
+            tank_2.dead = True
+    
 
 """
     There's a way better method of scheduling events. This is just a placeholder!
 """
 # FIRST SAMPLE AT 40.305s
-while rtc.getPlusMS() < collection_1.up_start_time:
+mprint.pform("Waiting for sample collection 1 at " + str(collection_1.up_start_time) + " ms", rtc.getTPlusMS(), output_log)
+while rtc.getTPlusMS() < collection_1.up_start_time:
     logPressures()
-    time.sleep(0.1)
-mprint.pform("VALVE_MAIN and VALVE_BLEED pulled HIGH", rtc.getTPlusMS(), output_log)
+
+mprint.pform("Beginning sampling for sample collection 1", rtc.getTPlusMS(), output_log)
 valve_main.open()
-tank_bleed.open()
-while rtc.getPlusMS() < 40400:
+valve_1.open()
+mprint.pform("VALVE_MAIN and VALVE_1 pulled HIGH", rtc.getTPlusMS(), output_log)
+
+while rtc.getTPlusMS() - collection_1.up_start_time < collection_1.up_duration:
     logPressures()
-    time.sleep(0.1)
+
+valve_main.close()
+valve_1.close()
+mprint.pform("VALVE_MAIN and VALVE_1 pulled LOW", rtc.getTPlusMS(), output_log)
+
+
+# SECOND SAMPLE AT 70 SOMETHING SECONDS
+mprint.pform("Waiting for sample collection 2 at " + str(collection_2.up_start_time) + " ms", rtc.getTPlusMS(), output_log)
+while rtc.getTPlusMS() < collection_2.up_start_time:
+    logPressures()
+    
+mprint.pform("Beginning outside bleed for sample collection 2", rtc.getTPlusMS(), output_log)
+valve_main.open()
+mprint.pform("VALVE_MAIN pulled HIGH", rtc.getTPlusMS(), output_log)
+time.sleep(0.1)
+valve_main.close()
+mprint.pform("VALVE_MAIN pulled LOW", rtc.getTPlusMS(), output_log)
+
+mprint.pform("Beginning inside bleed for sample collection 2", rtc.getTPlusMS(), output_log)
+tank_bleed.open()
+mprint.pform("VALVE_BLEED pulled HIGH", rtc.getTPlusMS(), output_log)
+time.sleep(collection_2.bleed_duration / 1000 + 50)
 tank_bleed.close()
+mprint.pform("VALVE_MAIN pulled LOW", rtc.getTPlusMS(), output_log)
+
+tank_bleed.open()
+mprint.pform("VALVE_MAIN and VALVE_BLEED pulled HIGH", rtc.getTPlusMS(), output_log)
+
+while rtc.getTPlusMS() - collection_2.up_start_time < collection_2.bleed_duration: # TODO: FIX TO MATCH FLOWCHART
+    logPressures()
+
+tank_bleed.close()
+mprint.pform("VALVE_BLEED pulled LOW", rtc.getTPlusMS(), output_log)
+
+
 
 # TODO: Probably have some sort of check with the pressure sensors to make sure we got a sample
 

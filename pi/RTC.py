@@ -40,7 +40,7 @@ class RTC:
         Returns the internal time of t0 in seconds
         AKA, what the DEVICE's date and time was at t0
         """
-        if !self.ready:
+        if not self.ready:
             return round(self.ref / 1000)
         return round(self.t0 / 1000)
         
@@ -49,7 +49,7 @@ class RTC:
         Returns the internal time of t0 in ms
         AKA, what the DEVICE's date and time was at t0
         """
-        if !self.ready:
+        if not self.ready:
             return self.ref
         return self.t0
 
@@ -58,7 +58,7 @@ class RTC:
         Get the time since launch in seconds
         Returns -1 if not ready
         """
-        if !self.ready:
+        if not self.ready:
             return round(time.time() - round(self.ref / 1000))
         return round(time.time() - round(self.t0 / 1000))
 
@@ -67,6 +67,6 @@ class RTC:
         Get the time since launch in milliseconds
         Returns -1 if not ready
         """
-        if !self.ready:
+        if not self.ready:
             return round(time.time()*1000) - self.ref
         return round(time.time()*1000) - self.t0

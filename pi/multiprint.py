@@ -8,10 +8,12 @@ class MultiPrinter:
     
     def p(self, message, f):
         """
+        
+        Print to both the screen and a specified file.
+        
         message:    The message to print and write
         f:          The file to write to
         
-        Print to both the screen and a specified file.
         """
         print(message)
         self.w(message, f)
