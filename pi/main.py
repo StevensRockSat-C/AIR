@@ -38,15 +38,17 @@ class Collection:
         driving_pressure: The hPa we expect this tank to get
     """
     
-    def __init__(self, up_start_time, down_start_time, up_duration, down_duration, bleed_duration, driving_pressure):
+    def __init__(self, up_start_time, down_start_time, up_duration, down_duration, bleed_duration, up_driving_pressure, down_driving_pressure):
         self.up_start_time = up_start_time
         self.down_start_time = down_start_time
         self.up_duration = up_duration
         self.down_duration = down_duration
         self.bleed_duration = bleed_duration
-        self.driving_pressure = driving_pressure
+        self.up_driving_pressure = up_driving_pressure
+        self.down_driving_pressure = down_driving_pressure
         self.sampled = False
         self.sample_upwards = True  # Set to False if this tank needs to be sampled on the way down
+        self.sampled_count = 0      # The number of times we've tried to sample
 
 # ---- SETTINGS ----
 PORT = "/dev/serial0"       # Serial Port
@@ -61,10 +63,10 @@ VALVE_1_PIN = 10            # First tank control pin
 VALVE_2_PIN = 9             # Second tank control pin
 VALVE_3_PIN = 11            # Third tank control pin
 
-# Setup our Colleciton objects
-collection_1 = Collection(40305, 100, -1, -1, 95, 1200)
-collection_2 = Collection(70000, 200, 290000, 200, 95, 700)
-collection_3 = Collection(90000, 300, 230000, 300, 95, 500)
+# Setup our Colleciton objects. Numbers from SampleTiming.xlsx in the drive. All durations are going to be the minimum actuation time
+collection_1 = Collection(40305, 230000, 100, -1, -1,   1270.44, 998.20)
+collection_2 = Collection(70000, 290000, 100, 100, 5,   753.43, 545.52)
+collection_3 = Collection(90000, 290000, 100, 100, 36,  490.13, 329.96)
 
 """
 VALVE_MAIN_PIN = 13 (BOARD) -> 27 (BCM)
@@ -163,7 +165,7 @@ class WrapMPRLS:
     )
 
 
-class Pressures:
+class PressuresOBJ:
     
     """
         Gather pressure information nicely
@@ -304,8 +306,8 @@ else:   # Bruh. No RTC on the line. Guess that's it.
 def logPressures():
     """
     Get the pressures from every MPRLS and logs them to the CSV output
-    Returns an array of time and pressures as follows:
-        [
+    
+    Returns a Pressure object with the pressure and time info:
             System Time (ms),
             T+ (ms),
             Canister Pressure (hpa),
@@ -313,9 +315,8 @@ def logPressures():
             Tank 1 Pressure (hpa),
             Tank 2 Pressure (hpa),
             Tank 3 Pressure (hpa)
-        ]
     """
-    pressures = Pressures(timeMS(), rtc.getTPlusMS(), mprls_canister.pressure, mprls_bleed.pressure, mprls_tank_1.pressure, mprls_tank_2.pressure, mprls_tank_3.pressure)
+    pressures = PressuresOBJ(timeMS(), rtc.getTPlusMS(), mprls_canister.pressure, mprls_bleed.pressure, mprls_tank_1.pressure, mprls_tank_2.pressure, mprls_tank_3.pressure)
     mprint.p(str(pressures.time_MS) + "," + str(pressures.TPlus_MS) + "," + str(pressures.canister_pressure) + "," + str(pressures.bleed_pressure) + "," + str(pressures.tank_1_pressure) + "," + str(pressures.tank_2_pressure) + "," + str(pressures.tank_3_pressure), output_pressures)
     return pressures
 
@@ -340,8 +341,6 @@ tank_bleed = Tank(valve_bleed)
 def equalizeTanks():
     """
         Asseses the pressures of the tanks and makes necessary adjustments
-        
-        TODO: Ensure we DO NOT vent a sampled tank!
     """
     
     pressures = logPressures()
@@ -364,6 +363,8 @@ def equalizeTanks():
                 time.sleep(0.1)
                 valve_3.close()
                 valve_2.close()
+            else:
+                collection_3.sample_upwards = False
         else: # Tank lost everything in the 5 days we waited. Mark it as dead
             tank_3.dead = True
             
@@ -375,73 +376,308 @@ def equalizeTanks():
                 time.sleep(0.1)
                 valve_2.close()
                 valve_1.close()
+            else: # Can't equalize the tank, so we'll grab this sample on the way down
+                collection_2.sample_upwards = False
         else: # Tank lost everything in the 5 days we waited. Mark it as dead
             tank_2.dead = True
     
+equalizeTanks()
 
 """
-    There's a way better method of scheduling events. This is just a placeholder!
+    Upwards sampling management
 """
 # FIRST SAMPLE AT 40.305s
-mprint.pform("Waiting for sample collection 1 at " + str(collection_1.up_start_time) + " ms", rtc.getTPlusMS(), output_log)
-while rtc.getTPlusMS() < collection_1.up_start_time:
-    logPressures()
-
-mprint.pform("Beginning sampling for sample collection 1", rtc.getTPlusMS(), output_log)
-valve_main.open()
-valve_1.open()
-mprint.pform("VALVE_MAIN and VALVE_1 pulled HIGH", rtc.getTPlusMS(), output_log)
-
-while rtc.getTPlusMS() - collection_1.up_start_time < collection_1.up_duration:
-    logPressures()
-
-valve_main.close()
-valve_1.close()
-mprint.pform("VALVE_MAIN and VALVE_1 pulled LOW", rtc.getTPlusMS(), output_log)
+while True:
+    collection_1.sampled_count += 1
+    mprint.pform("Waiting for sample collection 1 at " + str(collection_1.up_start_time) + " ms. Try number " + str(collection_1.sampled_count), rtc.getTPlusMS(), output_log)
+    while rtc.getTPlusMS() < collection_1.up_start_time:
+        logPressures()
+    
+    mprint.pform("Beginning sampling for sample collection 1", rtc.getTPlusMS(), output_log)
+    valve_main.open()
+    valve_1.open()
+    mprint.pform("VALVE_MAIN and VALVE_1 pulled HIGH", rtc.getTPlusMS(), output_log)
+    
+    while rtc.getTPlusMS() - collection_1.up_start_time < collection_1.up_duration:
+        logPressures()
+    
+    valve_main.close()
+    valve_1.close()
+    mprint.pform("VALVE_MAIN and VALVE_1 pulled LOW", rtc.getTPlusMS(), output_log)
+    
+    pressures = logPressures()
+    tank_1.sampled = True
+    collection_1.sampled = True
+    if pressures.tank_1_pressure > 1100 or collection_1.sampled_count >= 3:
+        if pressures.tank_1_pressure <= 1100:
+            collection_1.sample_upwards = False     # Mark this collection for sampling on the way down
+        break   # Terminate the loop once we get the correct pressure or we've sampled too many times
 
 
 # SECOND SAMPLE AT 70 SOMETHING SECONDS
-mprint.pform("Waiting for sample collection 2 at " + str(collection_2.up_start_time) + " ms", rtc.getTPlusMS(), output_log)
-while rtc.getTPlusMS() < collection_2.up_start_time:
-    logPressures()
+if collection_2.sample_upwards:
+    while True:
+        collection_2.sampled_count += 1
+        mprint.pform("Waiting for sample collection 2 at " + str(collection_2.up_start_time) + " ms. Try number " + str(collection_2.sampled_count), rtc.getTPlusMS(), output_log)
+        while rtc.getTPlusMS() < collection_2.up_start_time:
+            logPressures()
+            
+        mprint.pform("Beginning outside bleed for sample collection 2", rtc.getTPlusMS(), output_log)
+        valve_main.open()
+        mprint.pform("VALVE_MAIN pulled HIGH", rtc.getTPlusMS(), output_log)
+        time.sleep(0.1)
+        valve_main.close()
+        mprint.pform("VALVE_MAIN pulled LOW", rtc.getTPlusMS(), output_log)
+        
+        mprint.pform("Beginning inside bleed for sample collection 2", rtc.getTPlusMS(), output_log)
+        tank_bleed.open()
+        mprint.pform("VALVE_BLEED pulled HIGH", rtc.getTPlusMS(), output_log)
+        sample_2_bleed_starttime = rtc.getTPlusMS()
+        while rtc.getTPlusMS() - sample_2_bleed_starttime < collection_2.bleed_duration + 50:    # +50ms, just to ensure we get everything out
+            logPressures()
+        tank_bleed.close()
+        mprint.pform("VALVE_BLEED pulled LOW", rtc.getTPlusMS(), output_log)
+        
+        mprint.pform("Beginning sampling for sample collection 2", rtc.getTPlusMS(), output_log)
+        valve_main.open()
+        valve_2.open()
+        mprint.pform("VALVE_MAIN and VALVE_2 pulled HIGH", rtc.getTPlusMS(), output_log)
+        sample_2_starttime = rtc.getTPlusMS()
+        while rtc.getTPlusMS() - sample_2_starttime < collection_2.up_duration:
+            logPressures()
+        valve_main.close()
+        valve_2.close()
+        mprint.pform("VALVE_MAIN and VALVE_2 pulled LOW", rtc.getTPlusMS(), output_log)
+        
+        pressures = logPressures()
+        tank_2.sampled = True
+        collection_2.sampled = True
+        if pressures.tank_2_pressure > 650 or collection_2.sampled_count >= 3:
+            if pressures.tank_2_pressure <= 650:
+                collection_2.sample_upwards = False     # Mark this collection for sampling on the way down
+            break   # Terminate the loop once we get the correct pressure or we've sampled too many times
+else:
+    mprint.pform("NOT sampling collection 2 on the way up. Instead, we'll sample it on the way down at " + str(collection_2.down_start_time) + " ms", rtc.getTPlusMS(), output_log)
+
+
+# THIRD SAMPLE AT 90 SOMETHING SECONDS
+if collection_3.sample_upwards:
+    while True:
+        collection_3.sampled_count += 1
+        mprint.pform("Waiting for sample collection 3 at " + str(collection_3.up_start_time) + " ms. Try number " + str(collection_3.sampled_count), rtc.getTPlusMS(), output_log)
+        while rtc.getTPlusMS() < collection_3.up_start_time:
+            logPressures()
+            
+        mprint.pform("Beginning outside bleed for sample collection 3", rtc.getTPlusMS(), output_log)
+        valve_main.open()
+        mprint.pform("VALVE_MAIN pulled HIGH", rtc.getTPlusMS(), output_log)
+        time.sleep(0.1)
+        valve_main.close()
+        mprint.pform("VALVE_MAIN pulled LOW", rtc.getTPlusMS(), output_log)
+        
+        mprint.pform("Beginning inside bleed for sample collection 3", rtc.getTPlusMS(), output_log)
+        tank_bleed.open()
+        mprint.pform("VALVE_BLEED pulled HIGH", rtc.getTPlusMS(), output_log)
+        sample_3_bleed_starttime = rtc.getTPlusMS()
+        while rtc.getTPlusMS() - sample_3_bleed_starttime < collection_3.bleed_duration + 50:   # +50ms, just to ensure we get everything out
+            logPressures()
+        tank_bleed.close()
+        mprint.pform("VALVE_BLEED pulled LOW", rtc.getTPlusMS(), output_log)
+        
+        mprint.pform("Beginning sampling for sample collection 3", rtc.getTPlusMS(), output_log)
+        valve_main.open()
+        valve_3.open()
+        mprint.pform("VALVE_MAIN and VALVE_3 pulled HIGH", rtc.getTPlusMS(), output_log)
+        sample_3_starttime = rtc.getTPlusMS()
+        while rtc.getTPlusMS() - sample_3_starttime < collection_3.up_duration:
+            logPressures()
+        valve_main.close()
+        valve_3.close()
+        mprint.pform("VALVE_MAIN and VALVE_3 pulled LOW", rtc.getTPlusMS(), output_log)
+        
+        pressures = logPressures()
+        tank_3.sampled = True
+        collection_3.sampled = True
+        if pressures.tank_3_pressure > 450 or collection_3.sampled_count >= 3:
+            if pressures.tank_3_pressure <= 450:
+                collection_3.sample_upwards = False     # Mark this collection for sampling on the way down
+            break   # Terminate the loop once we get the correct pressure or we've sampled too many times
+else:
+    mprint.pform("NOT sampling collection 3 on the way up. Instead, we'll sample it on the way down at " + str(collection_3.down_start_time) + " ms", rtc.getTPlusMS(), output_log)
+
+
+"""
+    Downwards sampling management
+"""
+if (not collection_1.sample_upwards) or (not collection_2.sample_upwards) or (not collection_3.sample_upwards):
+    mprint.pform("1 or more collections did not occur successfully! We'll prep to take those samples on the way down", rtc.getTPlusMS(), output_log)
     
-mprint.pform("Beginning outside bleed for sample collection 2", rtc.getTPlusMS(), output_log)
-valve_main.open()
-mprint.pform("VALVE_MAIN pulled HIGH", rtc.getTPlusMS(), output_log)
-time.sleep(0.1)
-valve_main.close()
-mprint.pform("VALVE_MAIN pulled LOW", rtc.getTPlusMS(), output_log)
+    mprint.pform("Waiting for apogee at 170000 ms.", rtc.getTPlusMS(), output_log)
+    while rtc.getTPlusMS() < 170000:
+        logPressures()
+        
+    mprint.pform("We're at the apogee!", rtc.getTPlusMS(), output_log)
+    valve_main.open()
+    valve_bleed.open()
+    mprint.pform("VALVE_MAIN and VALVE_BLEED pulled HIGH", rtc.getTPlusMS(), output_log)
+    
+    if not collection_1.sample_upwards:
+        valve_1.open()
+        tank_1.sampled = False
+        collection_1.sampled = False
+        collection_1.sampled_count = 0
+        mprint.pform("VALVE_1 pulled HIGH", rtc.getTPlusMS(), output_log)
+        
+    if not collection_2.sample_upwards:
+        valve_2.open()
+        tank_2.sampled = False
+        collection_2.sampled = False
+        collection_2.sampled_count = 0
+        mprint.pform("VALVE_2 pulled HIGH", rtc.getTPlusMS(), output_log)
+        
+    if not collection_3.sample_upwards:
+        valve_3.open()
+        tank_3.sampled = False
+        collection_3.sampled = False
+        collection_3.sampled_count = 0
+        mprint.pform("VALVE_3 pulled HIGH", rtc.getTPlusMS(), output_log)
+        
+    while rtc.getTPlusMS() < 175000:
+        logPressures()
+    
+    valve_main.close()
+    valve_bleed.close()
+    valve_1.close()
+    valve_2.close()
+    valve_3.close()
+    mprint.pform("ALL VALVES pulled LOW", rtc.getTPlusMS(), output_log)
+    
+    
+    if not collection_3.sample_upwards:
+        while True:
+            collection_3.sampled_count += 1
+            mprint.pform("Waiting for sample collection 3 at " + str(collection_3.down_start_time) + " ms. Try number " + str(collection_3.sampled_count), rtc.getTPlusMS(), output_log)
+            while rtc.getTPlusMS() < collection_3.down_start_time:
+                logPressures()
+            
+            # Is this bleed unnecessary?
+            mprint.pform("Beginning inside bleed for sample collection 3", rtc.getTPlusMS(), output_log)
+            tank_bleed.open()
+            mprint.pform("VALVE_BLEED pulled HIGH", rtc.getTPlusMS(), output_log)
+            sample_3_bleed_starttime = rtc.getTPlusMS()
+            while rtc.getTPlusMS() - sample_3_bleed_starttime < collection_3.bleed_duration + 50:   # +50ms, just to ensure we get everything out
+                logPressures()
+            tank_bleed.close()
+            mprint.pform("VALVE_BLEED pulled LOW", rtc.getTPlusMS(), output_log)
+            
+            mprint.pform("Beginning sampling for sample collection 3", rtc.getTPlusMS(), output_log)
+            valve_main.open()
+            valve_3.open()
+            mprint.pform("VALVE_MAIN and VALVE_3 pulled HIGH", rtc.getTPlusMS(), output_log)
+            sample_3_starttime = rtc.getTPlusMS()
+            while rtc.getTPlusMS() - sample_3_starttime < collection_3.down_duration:
+                logPressures()
+            valve_main.close()
+            valve_3.close()
+            mprint.pform("VALVE_MAIN and VALVE_3 pulled LOW", rtc.getTPlusMS(), output_log)
+            
+            pressures = logPressures()
+            tank_3.sampled = True
+            collection_3.sampled = True
+            if pressures.tank_3_pressure > 300 or collection_3.sampled_count >= 3:
+                break   # Terminate the loop once we get the correct pressure or we've sampled too many times
+    else:
+        mprint.pform("NOT sampling collection 3 on the way down", rtc.getTPlusMS(), output_log)
 
-mprint.pform("Beginning inside bleed for sample collection 2", rtc.getTPlusMS(), output_log)
-tank_bleed.open()
-mprint.pform("VALVE_BLEED pulled HIGH", rtc.getTPlusMS(), output_log)
-time.sleep(collection_2.bleed_duration / 1000 + 50)
-tank_bleed.close()
-mprint.pform("VALVE_MAIN pulled LOW", rtc.getTPlusMS(), output_log)
 
-tank_bleed.open()
-mprint.pform("VALVE_MAIN and VALVE_BLEED pulled HIGH", rtc.getTPlusMS(), output_log)
+    if not collection_2.sample_upwards:
+        while True:
+            collection_2.sampled_count += 1
+            mprint.pform("Waiting for sample collection 2 at " + str(collection_2.down_start_time) + " ms. Try number " + str(collection_2.sampled_count), rtc.getTPlusMS(), output_log)
+            while rtc.getTPlusMS() < collection_2.down_start_time:
+                logPressures()
+            
+            mprint.pform("Beginning inside bleed for sample collection 2", rtc.getTPlusMS(), output_log)
+            tank_bleed.open()
+            mprint.pform("VALVE_BLEED pulled HIGH", rtc.getTPlusMS(), output_log)
+            sample_2_bleed_starttime = rtc.getTPlusMS()
+            while rtc.getTPlusMS() - sample_2_bleed_starttime < collection_2.bleed_duration + 50:   # +50ms, just to ensure we get everything out
+                logPressures()
+            tank_bleed.close()
+            mprint.pform("VALVE_BLEED pulled LOW", rtc.getTPlusMS(), output_log)
+            
+            mprint.pform("Beginning sampling for sample collection 2", rtc.getTPlusMS(), output_log)
+            valve_main.open()
+            valve_2.open()
+            mprint.pform("VALVE_MAIN and VALVE_2 pulled HIGH", rtc.getTPlusMS(), output_log)
+            sample_2_starttime = rtc.getTPlusMS()
+            while rtc.getTPlusMS() - sample_2_starttime < collection_2.down_duration:
+                logPressures()
+            valve_main.close()
+            valve_2.close()
+            mprint.pform("VALVE_MAIN and VALVE_2 pulled LOW", rtc.getTPlusMS(), output_log)
+            
+            pressures = logPressures()
+            tank_2.sampled = True
+            collection_2.sampled = True
+            if pressures.tank_2_pressure > 500 or collection_2.sampled_count >= 3:
+                break   # Terminate the loop once we get the correct pressure or we've sampled too many times
+    else:
+        mprint.pform("NOT sampling collection 2 on the way down", rtc.getTPlusMS(), output_log)
+        
+    
+    if not collection_1.sample_upwards:
+        while True:
+            collection_1.sampled_count += 1
+            mprint.pform("Waiting for sample collection 1 at " + str(collection_1.down_start_time) + " ms. Try number " + str(collection_1.sampled_count), rtc.getTPlusMS(), output_log)
+            while rtc.getTPlusMS() < collection_1.down_start_time:
+                logPressures()
+            
+            mprint.pform("Beginning inside bleed for sample collection 1", rtc.getTPlusMS(), output_log)
+            tank_bleed.open()
+            mprint.pform("VALVE_BLEED pulled HIGH", rtc.getTPlusMS(), output_log)
+            sample_1_bleed_starttime = rtc.getTPlusMS()
+            while rtc.getTPlusMS() - sample_1_bleed_starttime < collection_1.bleed_duration + 50:   # +50ms, just to ensure we get everything out
+                logPressures()
+            tank_bleed.close()
+            mprint.pform("VALVE_BLEED pulled LOW", rtc.getTPlusMS(), output_log)
+            
+            mprint.pform("Beginning sampling for sample collection 1", rtc.getTPlusMS(), output_log)
+            valve_main.open()
+            valve_1.open()
+            mprint.pform("VALVE_MAIN and VALVE_1 pulled HIGH", rtc.getTPlusMS(), output_log)
+            sample_1_starttime = rtc.getTPlusMS()
+            while rtc.getTPlusMS() - sample_1_starttime < collection_1.down_duration:
+                logPressures()
+            valve_main.close()
+            valve_1.close()
+            mprint.pform("VALVE_MAIN and VALVE_1 pulled LOW", rtc.getTPlusMS(), output_log)
+            
+            pressures = logPressures()
+            tank_1.sampled = True
+            collection_1.sampled = True
+            if pressures.tank_1_pressure > 950 or collection_1.sampled_count >= 3:
+                break   # Terminate the loop once we get the correct pressure or we've sampled too many times
+    else:
+        mprint.pform("NOT sampling collection 1 on the way down", rtc.getTPlusMS(), output_log)
 
-while rtc.getTPlusMS() - collection_2.up_start_time < collection_2.bleed_duration: # TODO: FIX TO MATCH FLOWCHART
-    logPressures()
-
-tank_bleed.close()
-mprint.pform("VALVE_BLEED pulled LOW", rtc.getTPlusMS(), output_log)
+else:
+    mprint.pform("We sampled everything on the way up sucessfully! Let's shut it down.", rtc.getTPlusMS(), output_log)
 
 
-
-# TODO: Probably have some sort of check with the pressure sensors to make sure we got a sample
-
-
-
-
+"""
+    Clean everything up
+"""
 # Close the GPIO setup
 GPIO.cleanup()
+mprint.pform("Cleaned up the GPIO", rtc.getTPlusMS(), output_log)
 
 # Close the serial port
 PI_ser.close()
+mprint.pform("Closed the Serial connection", rtc.getTPlusMS(), output_log)
 
 # Close the output files
+mprint.pform("A mimir... zzz...", rtc.getTPlusMS(), output_log)
 output_log.close()
 output_pressures.close()
 
