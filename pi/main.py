@@ -210,7 +210,7 @@ from adafruit_extended_bus import ExtendedI2C as I2C
 import adafruit_ds3231
 import adafruit_tca9548a
 import adafruit_mprls
-import RTC  # Our home-built Realtime Clock lib
+from RTC import RTC  # Our home-built Realtime Clock lib
 
 # Init GPIO
 #   We do this before connecting to i2c devices because we want to make sure our valves are closed!
