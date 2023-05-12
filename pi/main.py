@@ -8,12 +8,12 @@
         Gets RTC time
             Keeps track of T+
         Logs pressures
-
-    This STILL NEEDS TO DO:
+        Sample collections
         Use the flowchart to build error handling
             A protocol for if pressures are not right
                 or if otherwise bad things happening
-        Sample collections
+
+    This STILL NEEDS TO DO:
         A protocol for handling the Secondary Pi
         A protocol for handling the Jetson
 
@@ -64,9 +64,9 @@ VALVE_2_PIN = 9             # Second tank control pin
 VALVE_3_PIN = 11            # Third tank control pin
 
 # Setup our Colleciton objects. Numbers from SampleTiming.xlsx in the drive. All durations are going to be the minimum actuation time
-collection_1 = Collection(40305, 230000, 100, 100, 1,   1270.44, 998.20)
-collection_2 = Collection(70000, 290000, 100, 100, 5,   753.43, 545.52)
-collection_3 = Collection(90000, 290000, 100, 100, 36,  490.13, 329.96)
+collection_1 = Collection(40305, 290000, 100, 100, 1,   1270.44, 998.20)
+collection_2 = Collection(70000, 255000, 100, 100, 5,   753.43, 545.52)
+collection_3 = Collection(90000, 230000, 100, 100, 36,  490.13, 329.96)
 
 """
 VALVE_MAIN_PIN = 13 (BOARD) -> 27 (BCM)
@@ -714,6 +714,11 @@ else:
     Clean everything up
 """
 # Close the GPIO setup
+valve_main.close()
+valve_bleed.close()
+valve_1.close()
+valve_2.close()
+valve_3.close()
 GPIO.cleanup()
 mprint.pform("Cleaned up the GPIO", rtc.getTPlusMS(), output_log)
 

@@ -39,6 +39,9 @@ def main():
         pass
     
     results = aib.run_nano()
+    
+    # Shutdown the system (No going back!)
+    os.system("shutdown now")
 
 def get_uptime():
     return time.time() - psutil.boot_time()
