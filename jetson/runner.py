@@ -21,6 +21,7 @@
 
 # Settings
 DEFAULT_BOOT_TIME = 35000   # The estimated time to boot and run the beginnings of the script, in MS. Will be used only if RTC is not live
+VERSION = "1.0.1-alpha"
 
 from ai_benchmark import AIBenchmark
 import psutil, os, time
@@ -28,7 +29,7 @@ import psutil, os, time
 def main():
     try:
         p = psutil.Process(os.getpid())
-        p.nice(-15) # Set this process to a higher priority. Could help us with GPU Memory issues
+        p.nice(-16) # Set this process to a higher priority. Could help us with GPU Memory issues
     except:
         print("Couldn't elevate process!! Are we not running as sudo?")
     
@@ -38,9 +39,13 @@ def main():
     while get_uptime() < 120 - (DEFAULT_BOOT_TIME / 1000):
         pass
     
-    results = aib.run_nano()
+    try:
+        results = aib.run_nano()
+    except:
+        print("Ran into an error. I guess let's shut down.")
     
     # Shutdown the system (No going back!)
+    print("A mimir... zzz... " + str(get_uptime()) + " s")
     os.system("shutdown now")
 
 def get_uptime():

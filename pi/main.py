@@ -51,6 +51,8 @@ class Collection:
         self.sampled_count = 0      # The number of times we've tried to sample
 
 # ---- SETTINGS ----
+VERSION = "1.0.1-alpha"
+
 PORT = "/dev/serial0"       # Serial Port
 BAUD_RATE = 115200          # Serial baud rate
 
@@ -203,6 +205,7 @@ output_log = open(str(time.time()) + '_output.txt', 'x') # Our main output file 
 output_pressures = open(str(time.time()) + '_pressures.csv', 'x') # Our main output file will be named as $time_output.txt
 
 mprint.p("time & sys imported, files open. Time: " + str(timeMS()) + " ms\tFirst script on: " + str(FIRST_ON_MS) + " ms", output_log)
+mprint.p("Version " + str(VERSION) + ". Time: " + str(timeMS()) + " ms", output_log)
 mprint.w("Time (ms),T+ (ms),Pressure Canister (hPa),Pressure Bleed (hPa),Pressure Valve 1 (hPa),Pressure Valve 2 (hPa),Pressure Valve 3 (hPa)", output_pressures) # Set up our CSV headers
 
 # Sensors
