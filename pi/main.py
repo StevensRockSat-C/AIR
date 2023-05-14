@@ -5,6 +5,7 @@
         Uses MultiPrint for filewriting
         Pulls the valves low at boot
         Connects to ALL i2c devices
+            Can handle any i2c device not connecting (in terms of not crashing)
         Gets RTC time
             Keeps track of T+
         Logs pressures
@@ -14,8 +15,7 @@
                 or if otherwise bad things happening
 
     This STILL NEEDS TO DO:
-        A protocol for handling the Secondary Pi
-        A protocol for handling the Jetson
+        Adjust procedures if an MRPLS cannot connect
 
 """
 
@@ -52,12 +52,12 @@ class Collection:
         self.sampled_count = 0      # The number of times we've tried to sample
 
 # ---- SETTINGS ----
-VERSION = "1.0.2-alpha"
+VERSION = "1.0.3-alpha"
 
 PORT = "/dev/serial0"       # Serial Port
 BAUD_RATE = 115200          # Serial baud rate
 
-DEFAULT_BOOT_TIME = 35000   # The estimated time to boot and run the beginnings of the script, in MS. Will be used only if RTC is not live
+DEFAULT_BOOT_TIME = 20000   # The estimated time to boot and run the beginnings of the script, in MS. Will be used only if RTC is not live
 
 GPIO_MODE = GPIO.BCM
 VALVE_MAIN_PIN = 27         # Parker 11/25/26 Main Valve control pin
@@ -202,8 +202,8 @@ from multiprint import MultiPrinter
 
 mprint = MultiPrinter()
 
-output_log = open(str(time.time()) + '_output.txt', 'x') # Our main output file will be named as $time_output.txt
-output_pressures = open(str(time.time()) + '_pressures.csv', 'x') # Our main output file will be named as $time_output.txt
+output_log = open(str(time.time()) + '_output.txt', 'x') # Our main output file will be named as ${time}_output.txt
+output_pressures = open(str(time.time()) + '_pressures.csv', 'x') # Our pressure output file will be named as ${time}_pressures.csv
 
 mprint.p("time & sys imported, files open. Time: " + str(timeMS()) + " ms\tFirst script on: " + str(FIRST_ON_MS) + " ms", output_log)
 mprint.p("Version " + str(VERSION) + ". Time: " + str(timeMS()) + " ms", output_log)
@@ -436,8 +436,8 @@ while True:
     pressures = logPressures()
     tank_1.sampled = True
     collection_1.sampled = True
-    if pressures.tank_1_pressure > 1100 or collection_1.sampled_count >= 3:
-        if pressures.tank_1_pressure <= 1100:
+    if pressures.tank_1_pressure > collection_1.up_driving_pressure * 0.9 or collection_1.sampled_count >= 3:
+        if pressures.tank_1_pressure <= collection_1.up_driving_pressure * 0.9:
             mprint.pform("Tank 1 pressure still too low! - " + str(pressures.tank_1_pressure) + " hPa. We'll sample it on the way down", rtc.getTPlusMS(), output_log)
             collection_1.sample_upwards = False     # Mark this collection for sampling on the way down
         else:
@@ -484,8 +484,8 @@ if collection_2.sample_upwards:
         pressures = logPressures()
         tank_2.sampled = True
         collection_2.sampled = True
-        if pressures.tank_2_pressure > 650 or collection_2.sampled_count >= 3:
-            if pressures.tank_2_pressure <= 650:
+        if pressures.tank_2_pressure > collection_2.up_driving_pressure * 0.9 or collection_2.sampled_count >= 3:
+            if pressures.tank_2_pressure <= collection_2.up_driving_pressure * 0.9:
                 mprint.pform("Tank 2 pressure still too low! - " + str(pressures.tank_2_pressure) + " hPa. We'll sample it on the way down", rtc.getTPlusMS(), output_log)
                 collection_2.sample_upwards = False     # Mark this collection for sampling on the way down
             else:
@@ -534,8 +534,8 @@ if collection_3.sample_upwards:
         pressures = logPressures()
         tank_3.sampled = True
         collection_3.sampled = True
-        if pressures.tank_3_pressure > 450 or collection_3.sampled_count >= 3:
-            if pressures.tank_3_pressure <= 450:
+        if pressures.tank_3_pressure > collection_3.up_driving_pressure * 0.9 or collection_3.sampled_count >= 3:
+            if pressures.tank_3_pressure <= collection_3.up_driving_pressure * 0.9:
                 mprint.pform("Tank 3 pressure still too low! - " + str(pressures.tank_3_pressure) + " hPa. We'll sample it on the way down", rtc.getTPlusMS(), output_log)
                 collection_3.sample_upwards = False     # Mark this collection for sampling on the way down
             else:
@@ -626,7 +626,7 @@ if (not collection_1.sample_upwards) or (not collection_2.sample_upwards) or (no
             pressures = logPressures()
             tank_3.sampled = True
             collection_3.sampled = True
-            if pressures.tank_3_pressure > 300 or collection_3.sampled_count >= 3:
+            if pressures.tank_3_pressure > collection_3.down_driving_pressure * 0.9 or collection_3.sampled_count >= 3:
                 mprint.pform("Finished sampling Tank 3 - " + str(pressures.tank_3_pressure) + " hPa", rtc.getTPlusMS(), output_log)
                 break   # Terminate the loop once we get the correct pressure or we've sampled too many times
             mprint.pform("Tank 3 pressure still too low! - " + str(pressures.tank_3_pressure), rtc.getTPlusMS(), output_log)
@@ -665,7 +665,7 @@ if (not collection_1.sample_upwards) or (not collection_2.sample_upwards) or (no
             pressures = logPressures()
             tank_2.sampled = True
             collection_2.sampled = True
-            if pressures.tank_2_pressure > 500 or collection_2.sampled_count >= 3:
+            if pressures.tank_2_pressure > collection_2.down_driving_pressure * 0.9 or collection_2.sampled_count >= 3:
                 mprint.pform("Finished sampling Tank 2 - " + str(pressures.tank_2_pressure) + " hPa", rtc.getTPlusMS(), output_log)
                 break   # Terminate the loop once we get the correct pressure or we've sampled too many times
             mprint.pform("Tank 2 pressure still too low! - " + str(pressures.tank_2_pressure), rtc.getTPlusMS(), output_log)
@@ -703,7 +703,7 @@ if (not collection_1.sample_upwards) or (not collection_2.sample_upwards) or (no
             pressures = logPressures()
             tank_1.sampled = True
             collection_1.sampled = True
-            if pressures.tank_1_pressure > 950 or collection_1.sampled_count >= 3:
+            if pressures.tank_1_pressure > collection_1.down_driving_pressure * 0.9 or collection_1.sampled_count >= 3:
                 mprint.pform("Finished sampling Tank 1 - " + str(pressures.tank_1_pressure) + " hPa", rtc.getTPlusMS(), output_log)
                 break   # Terminate the loop once we get the correct pressure or we've sampled too many times
             mprint.pform("Tank 1 pressure still too low! - " + str(pressures.tank_1_pressure), rtc.getTPlusMS(), output_log)
