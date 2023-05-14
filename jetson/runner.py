@@ -21,7 +21,7 @@
 
 # Settings
 DEFAULT_BOOT_TIME = 35000   # The estimated time to boot and run the beginnings of the script, in MS. Will be used only if RTC is not live
-VERSION = "1.0.1-alpha"
+VERSION = "1.0.2-alpha"
 
 from ai_benchmark import AIBenchmark
 import psutil, os, time
@@ -32,6 +32,8 @@ def main():
         p.nice(-16) # Set this process to a higher priority. Could help us with GPU Memory issues
     except:
         print("Couldn't elevate process!! Are we not running as sudo?")
+    
+    print("Runner version " + str(VERSION))
     
     aib = AIBenchmark(verbose_level=2)
     
