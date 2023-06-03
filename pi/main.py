@@ -345,6 +345,7 @@ def logPressures():
 # Get our first pressure readings
 logPressures()
 
+# TODO: Are we going to scrap the serial? I'm alright doing that.
 # Open the serial port to the Secondary Pi
 PI_ser = serial.Serial(PORT, BAUD_RATE)
 
@@ -411,6 +412,7 @@ def equalizeTanks():
         else: # Tank lost everything in the 5 days we waited. Mark it as dead
             mprint.pform("Pressure in Tank 3 is atmospheric. Marked it as dead", rtc.getTPlusMS(), output_log)
             tank_3.dead = True
+            collection_3.sample_upwards = False
             
     if (pressures.tank_2_pressure > collection_2.up_driving_pressure * 0.9) and not tank_2.sampled:  # If the pressure in the 2nd tank is too big...
         mprint.pform("Pressure in Tank 2 is too large for collection! - " + str(pressures.tank_2_pressure) + " hPa", rtc.getTPlusMS(), output_log)
@@ -433,6 +435,7 @@ def equalizeTanks():
         else: # Tank lost everything in the 5 days we waited. Mark it as dead
             mprint.pform("Pressure in Tank 2 is atmospheric. Marked it as dead", rtc.getTPlusMS(), output_log)
             tank_2.dead = True
+            collection_2.sample_upwards = False
     
     return True
     
@@ -497,8 +500,6 @@ for collection in collections:
 
 """
     Downwards sampling management
-    
-    TODO: Temporarily open "dead" tanks and check pressures afterwards to determine if a downwards sample is viable
 """
 all_good = True
 for collection in collections:
@@ -506,6 +507,45 @@ for collection in collections:
 
 if not all_good:
     mprint.pform("1 or more collections did not occur successfully! We'll prep to take those samples on the way down", rtc.getTPlusMS(), output_log)
+    
+    any_dead = False
+    for collection in collections:
+        if collection.tank.dead: any_dead = True 
+    
+    if any_dead:
+        mprint.pform("Waiting for dead-test at 160000 ms.", rtc.getTPlusMS(), output_log)
+        while rtc.getTPlusMS() < 160000:
+            logPressures()
+        
+        # The dead-test checks to see if the seal between the valve and the tank has been broken.
+        mprint.pform("Performing dead-test", rtc.getTPlusMS(), output_log)
+        for collection in collections:
+            if collection.tank.dead:
+                mprint.pform("Testing Tank " + collection.tank.valve.name, rtc.getTPlusMS(), output_log)
+                
+                start_canister_pressure = logPressures().canister_pressure
+                mprint.pform("Starting canister pressure - " + str(start_canister_pressure) + " hPa", rtc.getTPlusMS(), output_log)
+                
+                valve_main.open()
+                collection.tank.valve.open()
+                mprint.pform("VALVE_MAIN and VALVE_" + collection.tank.valve.name + " pulled HIGH", rtc.getTPlusMS(), output_log)
+                
+                test_starttime = rtc.getTPlusMS()
+                while rtc.getTPlusMS() - test_starttime < 1000: # Open the tank for 1 second
+                    logPressures()
+                
+                valve_main.close()
+                collection.tank.valve.close()
+                mprint.pform("VALVE_MAIN and VALVE_" + collection.tank.valve.name + " pulled LOW", rtc.getTPlusMS(), output_log)
+                
+                end_canister_pressure = logPressures().canister_pressure
+                mprint.pform("Ending canister pressure - " + str(end_canister_pressure) + " hPa", rtc.getTPlusMS(), output_log)
+                # TODO: Can we get a real number for this? I'm just using 3 hPa based on the known STD of the sensors
+                if start_canister_pressure - end_canister_pressure < 3: # We just leaked 3 hPa from the WHOLE FUCKING ROCKET in 1 second
+                    mprint.pform("The difference of pressures of " + str(start_canister_pressure - end_canister_pressure) + " hPa is negligible. Marked Tank " + collection.tank.valve.name + " for use.", rtc.getTPlusMS(), output_log)
+                    collection.tank.dead = False
+                else:
+                    mprint.pform("The difference of pressures of " + str(start_canister_pressure - end_canister_pressure) + " hPa is SIGNIFICANT! We will keep Tank " + collection.tank.valve.name + " marked as dead.", rtc.getTPlusMS(), output_log)
     
     mprint.pform("Waiting for apogee at 170000 ms.", rtc.getTPlusMS(), output_log)
     while rtc.getTPlusMS() < 170000:
@@ -544,7 +584,7 @@ if not all_good:
         f+=1
     
     for collection in rev_collections:
-        if not collection.sample_upwards:
+        if not collection.sample_upwards and not collection.tank.dead:
             while True:
                 collection.sampled_count += 1
                 mprint.pform("Waiting for sample collection " + collection.num + " at " + str(collection.down_start_time) + " ms. Try #" + str(collection.sampled_count), rtc.getTPlusMS(), output_log)
