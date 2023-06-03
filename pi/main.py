@@ -67,7 +67,7 @@ class Collection:
         self.sampled_count = 0      # The number of times we've tried to sample
 
 # ---- SETTINGS ----
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 
 PORT = "/dev/serial0"       # Serial Port
 BAUD_RATE = 115200          # Serial baud rate
