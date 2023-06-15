@@ -20,7 +20,7 @@
 """
 
 # Settings
-DEFAULT_BOOT_TIME = 35000   # The estimated time to boot and run the beginnings of the script, in MS. Will be used only if RTC is not live
+DEFAULT_BOOT_TIME = 20000   # The estimated time to boot and run the beginnings of the script, in MS. Will be used only if RTC is not live
 VERSION = "1.0.2-alpha"
 
 from ai_benchmark import AIBenchmark

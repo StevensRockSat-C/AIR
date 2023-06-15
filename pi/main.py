@@ -67,7 +67,7 @@ class Collection:
         self.sampled_count = 0      # The number of times we've tried to sample
 
 # ---- SETTINGS ----
-VERSION = "1.1.1"
+VERSION = "1.2.0"
 
 PORT = "/dev/serial0"       # Serial Port
 BAUD_RATE = 115200          # Serial baud rate
@@ -454,6 +454,19 @@ for collection in collections:
                 logPressures()
             
             if collection.upwards_bleed:
+                mprint.pform("Checking bleed tank pressure for sample collection " + str(collection.num), rtc.getTPlusMS(), output_log)
+                temp_bleed_pressure = mprls_bleed.pressure
+                if mprls_bleed.cantConnect or temp_bleed_pressure > collection.up_driving_pressure: # There's no way in hell we're bleeding off this thing. 
+                    mprint.pform("!! Sample collection " + str(collection.num) + 
+                                 " requires a full bleed for a driving pressure of " + str(collection.up_driving_pressure) + 
+                                 " hPa, but our bleed tank is at " + str(temp_bleed_pressure) + 
+                                 " hPa. Thus, we'll opt to sample this on the way down!", rtc.getTPlusMS(), output_log)
+                    collection.sample_upwards = False     # Mark this collection for sampling on the way down
+                    break
+                else:
+                    mprint.pform("Sample collection " + str(collection.num) + " requires a full bleed for a driving pressure of " + str(collection.up_driving_pressure) + 
+                                 " hPa, which is greater than the bleed tank pressure of " + str(temp_bleed_pressure) + " hPa.", rtc.getTPlusMS(), output_log)
+                    
                 mprint.pform("Beginning outside bleed for sample collection " + collection.num, rtc.getTPlusMS(), output_log)
                 valve_main.open()
                 mprint.pform("VALVE_MAIN pulled HIGH", rtc.getTPlusMS(), output_log)
@@ -488,14 +501,14 @@ for collection in collections:
             
             if collection.mprls.cantConnect or pressure > collection.up_driving_pressure * 0.9 or collection.sampled_count >= 3:
                 if not collection.mprls.cantConnect and pressure <= collection.up_driving_pressure * 0.9:
-                    mprint.pform("Tank 2 pressure still too low! - " + str(pressure) + " hPa. We'll sample it on the way down", rtc.getTPlusMS(), output_log)
+                    mprint.pform("Tank " + str(collection.tank.valve.name) + " pressure still too low! - " + str(pressure) + " hPa. We'll sample it on the way down", rtc.getTPlusMS(), output_log)
                     collection.sample_upwards = False     # Mark this collection for sampling on the way down
                 else:
-                    mprint.pform("Finished sampling Tank " + collection.tank.valve.name + " - " + str(pressure) + " hPa", rtc.getTPlusMS(), output_log)
+                    mprint.pform("Finished sampling Tank " + str(collection.tank.valve.name) + " - " + str(pressure) + " hPa", rtc.getTPlusMS(), output_log)
                 break   # Terminate the loop once we get the correct pressure or we've sampled too many times
-            mprint.pform("Tank " + collection.tank.valve.name + " pressure still too low! - " + str(pressure), rtc.getTPlusMS(), output_log)
+            mprint.pform("Tank " + str(collection.tank.valve.name) + " pressure still too low! - " + str(pressure), rtc.getTPlusMS(), output_log)
     else:
-        mprint.pform("NOT sampling collection " + collection.num + " on the way up. Instead, we'll sample it on the way down at " + str(collection.down_start_time) + " ms", rtc.getTPlusMS(), output_log)
+        mprint.pform("NOT sampling collection " + str(collection.num) + " on the way up. Instead, we'll sample it on the way down at " + str(collection.down_start_time) + " ms", rtc.getTPlusMS(), output_log)
 
 
 """
