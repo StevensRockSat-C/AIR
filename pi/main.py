@@ -345,12 +345,14 @@ def logPressures():
 # Get our first pressure readings
 logPressures()
 
+"""
 # TODO: Are we going to scrap the serial? I'm alright doing that.
 # Open the serial port to the Secondary Pi
 PI_ser = serial.Serial(PORT, BAUD_RATE)
 
 # Send the string "Hello world"
 PI_ser.write(b"Hello world")
+"""
 
 # Setup our Tank objects
 tank_1 = Tank(valve_1)
@@ -654,9 +656,11 @@ valve_3.close()
 GPIO.cleanup()
 mprint.pform("Cleaned up the GPIO", rtc.getTPlusMS(), output_log)
 
+"""
 # Close the serial port
 PI_ser.close()
 mprint.pform("Closed the Serial connection", rtc.getTPlusMS(), output_log)
+"""
 
 # Close the output files
 mprint.pform("A mimir... zzz...", rtc.getTPlusMS(), output_log)
