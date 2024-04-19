@@ -25,20 +25,28 @@ class RTC:
             
     def setRef(self, ref):
         """
+        Set the estimated T0 time if the RTC can't be found.
+        
         ref:    Estimated T0 in MS
-        Set the estimated T0 time if the RTC can't be found
+        
+        Returns
+        -------
+        Difference of new and old t0
         """
+        prior_t0 = self.t0
         self.ref = ref
+        self.t0 = ref
+        self.tMinus60 = self.t0 - 60000
+        return self.t0 - prior_t0
             
     def isReady(self):
-        """
-        Return whether the sensor is ready
-        """
+        """Query whether the sensor is ready."""
         return self.ready
         
     def getT0(self):
         """
-        Returns the internal time of t0 in seconds
+        Retrieve the internal time of t0 in seconds.
+        
         AKA, what the DEVICE's date and time was at t0
         """
         if not self.ready:
@@ -47,7 +55,8 @@ class RTC:
         
     def getT0MS(self):
         """
-        Returns the internal time of t0 in ms
+        Retrieve the internal time of t0 in ms.
+        
         AKA, what the DEVICE's date and time was at t0
         """
         if not self.ready:
@@ -56,7 +65,8 @@ class RTC:
 
     def getTPlus(self):
         """
-        Get the time since launch in seconds
+        Get the time since launch in seconds.
+        
         Returns -1 if not ready
         """
         if not self.ready:
@@ -65,7 +75,8 @@ class RTC:
 
     def getTPlusMS(self):
         """
-        Get the time since launch in milliseconds
+        Get the time since launch in milliseconds.
+        
         Returns -1 if not ready
         """
         if not self.ready:
