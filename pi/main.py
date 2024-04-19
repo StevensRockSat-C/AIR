@@ -69,10 +69,7 @@ class Collection:
 # ---- SETTINGS ----
 VERSION = "1.2.0"
 
-PORT = "/dev/serial0"       # Serial Port
-BAUD_RATE = 115200          # Serial baud rate
-
-DEFAULT_BOOT_TIME = 20000   # The estimated time to boot and run the beginnings of the script, in MS. Will be used only if RTC is not live
+DEFAULT_BOOT_TIME = 35000   # The estimated time to boot and run the beginnings of the script, in MS. Will be used only if RTC is not live
 
 GPIO_MODE = GPIO.BCM
 VALVE_MAIN_PIN = 27         # Parker 11/25/26 Main Valve control pin
@@ -80,6 +77,7 @@ VALVE_BLEED_PIN = 22        # ASCO Bleed Valve control pin
 VALVE_1_PIN = 10            # First tank control pin
 VALVE_2_PIN = 9             # Second tank control pin
 VALVE_3_PIN = 11            # Third tank control pin
+GSWITCH_PIN = 23            # G-switch input pin
 
 # Setup our Colleciton objects. Numbers from SampleTiming.xlsx in the drive. All durations are going to be the minimum actuation time
 collection_1 = Collection(1, 40305, 290000, 100, 100, 1,   1270.44, 998.20, False)
@@ -319,10 +317,10 @@ if rtc.isReady():
     
 else:   # Bruh. No RTC on the line. Guess that's it.
 
-    TIME_LAUNCH_MS = FIRST_ON_MS - DEFAULT_BOOT_TIME   # We'll assume 35 seconds in, based on lab testing.
+    TIME_LAUNCH_MS = FIRST_ON_MS - DEFAULT_BOOT_TIME + 60000 # We'll assume 35 seconds in, based on lab testing. Add 60 seconds from 1.SYS.1 Early Activation
     rtc.setRef(TIME_LAUNCH_MS)
     
-    mprint.p("NO RTC!! Going to assume it's 35 seconds past launch", output_log)
+    mprint.p("NO RTC!! Going to assume it's 35 seconds past T-60", output_log)
     mprint.pform("T0: " + str(TIME_LAUNCH_MS) + " ms", rtc.getTPlusMS(), output_log)
 
 def logPressures():
@@ -345,14 +343,22 @@ def logPressures():
 # Get our first pressure readings
 logPressures()
 
-"""
-# TODO: Are we going to scrap the serial? I'm alright doing that.
-# Open the serial port to the Secondary Pi
-PI_ser = serial.Serial(PORT, BAUD_RATE)
+def gswitch_callback(channel):
+    """
+    Handle the G-Switch input. This sets our reference T+0.
 
-# Send the string "Hello world"
-PI_ser.write(b"Hello world")
-"""
+    Parameters
+    ----------
+    channel : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
+    
+    
 
 # Setup our Tank objects
 tank_1 = Tank(valve_1)

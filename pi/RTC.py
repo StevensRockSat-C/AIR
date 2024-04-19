@@ -16,7 +16,8 @@ class RTC:
             self.ds3231 = adafruit_ds3231.DS3231(i2c)
             self.rtcTime = self.ds3231.datetime
             self.now = round(time.time()*1000) # Get a fresh reference time
-            self.t0 = self.now - (((self.rtcTime.tm_min * 60) + self.rtcTime.tm_sec) * 1000) # The oscillator should take an average of 2s to start and calibrate, from the datasheet. However, it seems it accounts for this interenally, so we WILL NOT add the 2 seconds ourselves.
+            self.tMinus60 = self.now - (((self.rtcTime.tm_min * 60) + self.rtcTime.tm_sec) * 1000) # The oscillator should take an average of 2s to start and calibrate, from the datasheet. However, it seems it accounts for this interenally, so we WILL NOT add the 2 seconds ourselves.
+            self.t0 = self.tMinus60 + 60000 # Estimate t0 from RBF at T-60
             self.ready = True
         except:
             print("No RTC is on the i2c line?!")
