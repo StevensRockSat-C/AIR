@@ -326,7 +326,10 @@ def collectVibrationData():
     overrun = daqhat.read_buffer_write_file(rtc.getTPlusMS())
     if overrun: mprint.pform("Overrun on buffer!", rtc.getTPlusMS(), output_log)
 
-collectVibrationData()
+# Start the data collection in a separate thread
+vibration_collection_thread = threading.Thread(target=collectVibrationData)
+vibration_collection_thread.daemon = True  # Set the thread as a daemon so it automatically stops when the main thread exits
+vibration_collection_thread.start()
 
 def logPressures():
     """
