@@ -8,7 +8,7 @@ def timeMS():
     """Get system time to milliseconds."""
     return time() * 1000
        
-class daqhatsWrapper:
+class WrapDAQHAT:
     """Wrap the DAQHAT library for ease of use."""
     
     #hat-id for 128 is 326, according to the library reference

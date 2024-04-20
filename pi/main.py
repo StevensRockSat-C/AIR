@@ -223,6 +223,8 @@ from adafruit_extended_bus import ExtendedI2C as I2C
 import adafruit_ds3231
 import adafruit_tca9548a
 import adafruit_mprls
+from daqHatWrapper import WrapDAQHAT
+import threading # Threading the vibration data
 from RTC import RTC  # Our home-built Realtime Clock lib
 
 # Init GPIO
@@ -294,6 +296,7 @@ if multiplex != False:
 else:
     mprint.p("NOT CONNECTING TO THE MPRLS because there's no multiplexer on the line!!", output_log)
 
+# Connect to the RTC
 rtc = RTC(i2c)
 
 # Establish our T0
@@ -314,6 +317,16 @@ else:   # Bruh. No RTC on the line. Guess that's it.
     
     mprint.p("NO RTC!! Going to assume it's 35 seconds past T-60", output_log)
     mprint.pform("T0: " + str(TIME_LAUNCH_MS) + " ms", rtc.getTPlusMS(), output_log)
+
+
+# Initialize the daqHat and begin collecting data
+daqhat = WrapDAQHAT(mprint)
+def collectVibrationData():
+    threading.Timer(0.1, collectVibrationData).start() # Re-call the thread
+    overrun = daqhat.read_buffer_write_file(rtc.getTPlusMS())
+    if overrun: mprint.pform("Overrun on buffer!", rtc.getTPlusMS(), output_log)
+
+collectVibrationData()
 
 def logPressures():
     """
