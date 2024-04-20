@@ -12,13 +12,14 @@ class WrapDAQHAT:
     """Wrap the DAQHAT library for ease of use."""
     
     #hat-id for 128 is 326, according to the library reference
-    def __init__(self, mprint, chanList=[0,1,2,4,5,6], debug=False, hat_id=326, sampleRate=6400): #open port/channel
+    def __init__(self, mprint, mainLogFile, chanList=[0,1,2,4,5,6], debug=False, hat_id=326, sampleRate=6400): #open port/channel
         self.hat_id = hat_id
         self.sampleRate = sampleRate #with 6400 samples, can do 10 kS
         self.samples_per_channel = 0
         self.channelList = chan_list_to_mask(chanList)
         self.numChannels = len(chanList)
-        self.fileName = str(time.time()) + '_AccelerationData.csv'
+        self.mainLogFile = mainLogFile
+        self.fileName = str(time()) + '_AccelerationData.csv'
         self.debug = debug
         self.mprint = mprint
         self.overrun = False
@@ -26,7 +27,7 @@ class WrapDAQHAT:
         self.connected = False
         self.connectionAttempts = 0
         
-        self.connect_to_MCC()
+        self.__connect_to_MCC()
 
     def __connect_to_MCC(self):
         """
@@ -49,7 +50,7 @@ class WrapDAQHAT:
             self.connected = True
         except:
             self.connected = False
-            self.mprint.p("FAILED TO CONNECT TO MCC128!! Time: " + str(timeMS()) + " ms")
+            self.mprint.p("FAILED TO CONNECT TO MCC128!! Time: " + str(timeMS()) + " ms", self.mainLogFile)
         return self.connected
     
     
@@ -106,7 +107,7 @@ class WrapDAQHAT:
         timeout = 0     # Use 0 timeout to immediately read the buffer's contents, instead of waiting for it to fill.
         
         if not self.connected:
-            self.connect_to_MCC()
+            self.__connect_to_MCC()
             if not self.connected: return False
             
         try:
