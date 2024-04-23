@@ -3,7 +3,6 @@ An implementation of the DS3231 RTC for T+ caculation
 '''
 
 import time
-from adafruit_extended_bus import ExtendedI2C as I2C
 import adafruit_ds3231
 
 class RTC:
@@ -21,7 +20,6 @@ class RTC:
             self.ready = True
         except:
             print("No RTC is on the i2c line?!")
-            self.ready = False
             
     def setRef(self, ref):
         """
@@ -67,7 +65,7 @@ class RTC:
         """
         Get the time since launch in seconds.
         
-        Returns -1 if not ready
+        Returns approximate time if not ready
         """
         if not self.ready:
             return round(time.time() - round(self.ref / 1000))
@@ -77,7 +75,7 @@ class RTC:
         """
         Get the time since launch in milliseconds.
         
-        Returns -1 if not ready
+        Returns approximate time if not ready
         """
         if not self.ready:
             return round(time.time()*1000) - self.ref

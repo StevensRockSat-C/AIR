@@ -48,9 +48,10 @@ class Collection:
     
     def __init__(self, num,
                  up_start_time, down_start_time,
-                 up_duration, down_duration, bleed_duration,
+                 bleed_duration,
                  up_driving_pressure, down_driving_pressure,
                  upwards_bleed,
+                 up_duration=100, down_duration=100,
                  tank = None,
                  mprls = None):
         self.num = str(num)
@@ -82,9 +83,12 @@ VALVE_3_PIN = 11            # Third tank control pin
 GSWITCH_PIN = 23            # G-switch input pin
 
 # Setup our Colleciton objects. Numbers from SampleTiming.xlsx in the drive. All durations are going to be the minimum actuation time
-collection_1 = Collection(1, 40305, 290000, 100, 100, 1,   1270.44, 998.20, False)
-collection_2 = Collection(2, 70000, 255000, 100, 100, 5,   753.43, 545.52, True)
-collection_3 = Collection(3, 90000, 230000, 100, 100, 36,  490.13, 329.96, True)
+collection_1 = Collection(num=1, up_start_time=40305, down_start_time=290000, bleed_duration=1, 
+                          up_driving_pressure=1270.44, down_driving_pressure=998.20, upwards_bleed=False)
+collection_2 = Collection(num=2, up_start_time=70000, down_start_time=255000, bleed_duration=5, 
+                          up_driving_pressure=753.43, down_driving_pressure=545.52, upwards_bleed=True)
+collection_3 = Collection(num=3, up_start_time=90000, down_start_time=230000, bleed_duration=36,  
+                          up_driving_pressure=490.13, down_driving_pressure=329.96, upwards_bleed=True)
 
 collections = [collection_1, collection_2, collection_3]
 
@@ -205,7 +209,6 @@ FIRST_ON_MS = timeMS() # Record the very first moment we are running the script
 TIME_LAUNCH_MS = -1
 
 # System control, like file writing
-import sys
 import os
 from multiprint import MultiPrinter
 
@@ -220,7 +223,6 @@ mprint.w("Time (ms),T+ (ms),Pressure Canister (hPa),Pressure Bleed (hPa),Pressur
 
 # Sensors
 from adafruit_extended_bus import ExtendedI2C as I2C
-import adafruit_ds3231
 import adafruit_tca9548a
 import adafruit_mprls
 from daqHatWrapper import WrapDAQHAT
@@ -301,7 +303,7 @@ rtc = RTC(i2c)
 
 # Establish our T0
 time_try_rtc = timeMS()
-while (not rtc.isReady()) and (time_try_rtc - 3000 < timeMS()): # Wait for up to 3 seconds for RTC.
+while (not rtc.isReady()) and (time_try_rtc + 3000 > timeMS()): # Wait for up to 3 seconds for RTC.
     pass
 
 if rtc.isReady():
@@ -322,7 +324,7 @@ else:   # Bruh. No RTC on the line. Guess that's it.
 # Initialize the daqHat and begin collecting data
 daqhat = WrapDAQHAT(mprint, output_log)
 def collectVibrationData():
-    threading.Timer(0.1, collectVibrationData).start() # Re-call the thread
+    threading.Timer(0.1, collectVibrationData).start() # Re-call the thread #shouldn't this be AFTER you read from the buffer?
     overrun = daqhat.read_buffer_write_file(rtc.getTPlusMS())
     if overrun: mprint.pform("Overrun on buffer!", rtc.getTPlusMS(), output_log)
 
@@ -682,7 +684,7 @@ mprint.pform("Closed the Serial connection", rtc.getTPlusMS(), output_log)
 """
 
 # Close the output files
-mprint.pform("A mimir... zzz...", rtc.getTPlusMS(), output_log)
+mprint.pform("Sleeping...", rtc.getTPlusMS(), output_log)
 output_log.close()
 output_pressures.close()
 

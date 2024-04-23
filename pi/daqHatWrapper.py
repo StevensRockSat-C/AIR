@@ -19,11 +19,10 @@ class WrapDAQHAT:
         self.channelList = chan_list_to_mask(chanList)
         self.numChannels = len(chanList)
         self.mainLogFile = mainLogFile
-        self.fileName = str(time()) + '_AccelerationData.csv'
         self.debug = debug
         self.mprint = mprint
         self.overrun = False
-        self.outputLog = open(self.fileName, 'w') #open file to write to, name it outputLog
+        self.outputLog = open(str(time()) + '_AccelerationData.csv', 'w') #open file to write to, name it outputLog
         self.connected = False
         self.connectionAttempts = 0
         
@@ -101,7 +100,7 @@ class WrapDAQHAT:
 
         Returns
         -------
-        Whether the buffer has overrun.
+        Whether the buffer has overrun, or False if MCC isn't connected.
         """
         read_request_size = -1      #read all available in buffer
         timeout = 0     # Use 0 timeout to immediately read the buffer's contents, instead of waiting for it to fill.
@@ -122,45 +121,3 @@ class WrapDAQHAT:
             self.connected = False
             return False
     
-    def read_write_data(self):
-        """
-        Continuously records data from accelerometers to buffer, then calls write_data_to_csv to save data to csv.
-        
-        Inputs:
-            self: daqHat class
-        
-        Output:
-            data saved to file
-        """
-        read_request_size = -1      #read all available in buffer
-        timeout = 0     # Use 0 timeout to immediately read the buffer's contents, instead of waiting for it to fill.
-        
-        #check if pi can handle desired sampling rate
-        if (self.debug): 
-            actual_sampling_rate = self.hat.a_in_scan_actual_rate(self.numChannels, self.sampleRate)
-            print("Actual sampling rate:", actual_sampling_rate)
-
-        while True:
-            try:                
-                startTime = timeMS()
-                #assign buffer values to sampleData then clear buffer
-                sampleData = self.hat.a_in_scan_read(read_request_size, timeout)
-                self.write_data_to_csv(sampleData.data, startTime)
-
-                sleep(0.1)
-            except KeyboardInterrupt:
-                sampleStartTime = timeMS()
-                sampleData= self.hat.a_in_scan_read(read_request_size, timeout) #get last values
-                self.write_data_to_csv(sampleData.data, sampleStartTime)
-                
-                #closing all files/scans
-                self.outputLog.close()
-                self.hat.a_in_scan_stop() #stopping continuous scan
-                self.hat.a_in_scan_cleanup() #cleaning up
-                #exit()
- 
-        
-#initialize multiprinter as mprint
-#mprint = MultiPrinter()
-#daq = daqhatsWrapper(mprint, debug=True)
-#daq.read_write_data()
