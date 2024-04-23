@@ -1,54 +1,57 @@
 """
-    This is the script for the Main Raspberry Pi, written by Anthony Ford
-    
-    This does the following:
-        Uses MultiPrint for filewriting
-        Pulls the valves low at boot
-        Connects to ALL i2c devices
-            Can handle any i2c device not connecting (in terms of not crashing)
-        Gets RTC time
-            Keeps track of T+
-        Logs pressures
-        Sample collections
-        Use the flowchart to build error handling
-            A protocol for if pressures are not right
-                or if otherwise bad things happening
-        Adjust procedures if an MRPLS cannot connect
+This is the script for the Main Raspberry Pi, written by Anthony Ford.
 
-    This STILL NEEDS TO DO:
-        ...nothing more?
+This does the following:
+    Uses MultiPrint for filewriting
+    Pulls the valves low at boot
+    Connects to ALL i2c devices
+        Can handle any i2c device not connecting (in terms of not crashing)
+    Gets RTC time
+        Keeps track of T+
+    Logs pressures
+    Sample collections
+    Use the flowchart to build error handling
+        A protocol for if pressures are not right
+            or if otherwise bad things happening
+    Adjust procedures if an MRPLS cannot connect
+
+This STILL NEEDS TO DO:
+    ...nothing more?
 """
 
 # Communications
-import serial
 from RPi import GPIO
 
 class Collection:
-
     """
-        Everything related to a collection timing. All provided times are in ms
-        
-        num: The indicie of this collection
-        
-        up_start_time: The T+ that this collection should happen if sampling on the way up
-        down_start_time: The T+ that this collection should happen if sampling on the way up
-        
-        up_duration: The time that the valves should remain open for the upwards collection
-        down_duration: The time that the valves should remain open for downwards collection
-        bleed_duration: How long we should bleed the lines for before collecting this sample
-        
-        up_driving_pressure: The hPa we expect this tank to get on the way up
-        down_driving_pressure: The hPa we expect this tank to get on the way down
-        
-        tank: The tank asociated with this collection period
-        mprls: The MPRLS asociated with this collection period
+    Everything related to a collection timing. All provided times are in ms.
+    
+    Parameters
+    ----------
+    num: The indicie of this collection
+    
+    up_start_time: The T+ that this collection should happen if sampling on the way up
+    down_start_time: The T+ that this collection should happen if sampling on the way up
+    
+    up_duration: The time that the valves should remain open for the upwards collection
+    down_duration: The time that the valves should remain open for downwards collection
+    bleed_duration: How long we should bleed the lines for before collecting this sample
+    
+    up_driving_pressure: The hPa we expect this tank to get on the way up
+    down_driving_pressure: The hPa we expect this tank to get on the way down
+    
+    upwards_bleed: Whether this collection needs to be bled on the way up
+    
+    tank: The tank asociated with this collection period
+    mprls: The MPRLS asociated with this collection period
     """
     
     def __init__(self, num,
                  up_start_time, down_start_time,
-                 up_duration, down_duration, bleed_duration,
+                 bleed_duration,
                  up_driving_pressure, down_driving_pressure,
                  upwards_bleed,
+                 up_duration=100, down_duration=100,
                  tank = None,
                  mprls = None):
         self.num = str(num)
@@ -69,10 +72,7 @@ class Collection:
 # ---- SETTINGS ----
 VERSION = "1.2.0"
 
-PORT = "/dev/serial0"       # Serial Port
-BAUD_RATE = 115200          # Serial baud rate
-
-DEFAULT_BOOT_TIME = 20000   # The estimated time to boot and run the beginnings of the script, in MS. Will be used only if RTC is not live
+DEFAULT_BOOT_TIME = 35000   # The estimated time to boot and run the beginnings of the script, in MS. Will be used only if RTC is not live
 
 GPIO_MODE = GPIO.BCM
 VALVE_MAIN_PIN = 27         # Parker 11/25/26 Main Valve control pin
@@ -80,11 +80,15 @@ VALVE_BLEED_PIN = 22        # ASCO Bleed Valve control pin
 VALVE_1_PIN = 10            # First tank control pin
 VALVE_2_PIN = 9             # Second tank control pin
 VALVE_3_PIN = 11            # Third tank control pin
+GSWITCH_PIN = 23            # G-switch input pin
 
 # Setup our Colleciton objects. Numbers from SampleTiming.xlsx in the drive. All durations are going to be the minimum actuation time
-collection_1 = Collection(1, 40305, 290000, 100, 100, 1,   1270.44, 998.20, False)
-collection_2 = Collection(2, 70000, 255000, 100, 100, 5,   753.43, 545.52, True)
-collection_3 = Collection(3, 90000, 230000, 100, 100, 36,  490.13, 329.96, True)
+collection_1 = Collection(num=1, up_start_time=40305, down_start_time=290000, bleed_duration=1, 
+                          up_driving_pressure=1270.44, down_driving_pressure=998.20, upwards_bleed=False)
+collection_2 = Collection(num=2, up_start_time=70000, down_start_time=255000, bleed_duration=5, 
+                          up_driving_pressure=753.43, down_driving_pressure=545.52, upwards_bleed=True)
+collection_3 = Collection(num=3, up_start_time=90000, down_start_time=230000, bleed_duration=36,  
+                          up_driving_pressure=490.13, down_driving_pressure=329.96, upwards_bleed=True)
 
 collections = [collection_1, collection_2, collection_3]
 
@@ -98,11 +102,10 @@ VALVE_3_PIN = 23 (BOARD) -> 11 (BCM)
 
 
 class Valve:
-
     """
-        Everything related to a valve
-        
-        pin: The BCM pin of the valve
+    Everything related to a valve.
+    
+    pin: The BCM pin of the valve
     """
     
     def __init__(self, pin, name):
@@ -110,25 +113,21 @@ class Valve:
         self.name = name
         GPIO.setup(self.pin, GPIO.OUT) # Set the pin to the output
         
-    """
-        Pull the valve pin HIGH
-    """
     def open(self):
+        """Pull the valve pin HIGH."""
         GPIO.output(self.pin, GPIO.HIGH)
         
-    """
-        Pull the valve pin LOW
-    """
+    
     def close(self):
+        """Pull the valve pin LOW."""
         GPIO.output(self.pin, GPIO.LOW)
 
 class Tank:
-
     """
-        Everything related to a single tank
-        
-        valve: The Valve object
-        collection: The sample collection object
+    Everything related to a single tank.
+    
+    valve: The Valve object
+    collection: The sample collection object
     """
     
     def __init__(self, valve):
@@ -187,10 +186,7 @@ class WrapMPRLS:
 
 
 class PressuresOBJ:
-    
-    """
-        Gather pressure information nicely
-    """
+    """Gather pressure information nicely."""
     
     def __init__(self, time_MS, TPlus_MS,
                  canister_pressure, bleed_pressure, tank_1_pressure, tank_2_pressure, tank_3_pressure):
@@ -206,16 +202,13 @@ class PressuresOBJ:
 import time
 
 def timeMS():
-    """
-    Returns system time to MS
-    """
+    """Returns system time to MS."""
     return round(time.time()*1000)
 
 FIRST_ON_MS = timeMS() # Record the very first moment we are running the script
 TIME_LAUNCH_MS = -1
 
 # System control, like file writing
-import sys
 import os
 from multiprint import MultiPrinter
 
@@ -230,9 +223,10 @@ mprint.w("Time (ms),T+ (ms),Pressure Canister (hPa),Pressure Bleed (hPa),Pressur
 
 # Sensors
 from adafruit_extended_bus import ExtendedI2C as I2C
-import adafruit_ds3231
 import adafruit_tca9548a
 import adafruit_mprls
+from daqHatWrapper import WrapDAQHAT
+import threading # Threading the vibration data
 from RTC import RTC  # Our home-built Realtime Clock lib
 
 # Init GPIO
@@ -304,11 +298,12 @@ if multiplex != False:
 else:
     mprint.p("NOT CONNECTING TO THE MPRLS because there's no multiplexer on the line!!", output_log)
 
+# Connect to the RTC
 rtc = RTC(i2c)
 
 # Establish our T0
 time_try_rtc = timeMS()
-while (not rtc.isReady()) and (time_try_rtc - 3000 < timeMS()): # Wait for up to 3 seconds for RTC.
+while (not rtc.isReady()) and (time_try_rtc + 3000 > timeMS()): # Wait for up to 3 seconds for RTC.
     pass
 
 if rtc.isReady():
@@ -319,15 +314,28 @@ if rtc.isReady():
     
 else:   # Bruh. No RTC on the line. Guess that's it.
 
-    TIME_LAUNCH_MS = FIRST_ON_MS - DEFAULT_BOOT_TIME   # We'll assume 35 seconds in, based on lab testing.
+    TIME_LAUNCH_MS = FIRST_ON_MS - DEFAULT_BOOT_TIME + 60000 # We'll assume 35 seconds in, based on lab testing. Add 60 seconds from 1.SYS.1 Early Activation
     rtc.setRef(TIME_LAUNCH_MS)
     
-    mprint.p("NO RTC!! Going to assume it's 35 seconds past launch", output_log)
+    mprint.p("NO RTC!! Going to assume it's 35 seconds past T-60", output_log)
     mprint.pform("T0: " + str(TIME_LAUNCH_MS) + " ms", rtc.getTPlusMS(), output_log)
+
+
+# Initialize the daqHat and begin collecting data
+daqhat = WrapDAQHAT(mprint, output_log)
+def collectVibrationData():
+    threading.Timer(0.1, collectVibrationData).start() # Re-call the thread #shouldn't this be AFTER you read from the buffer?
+    overrun = daqhat.read_buffer_write_file(rtc.getTPlusMS())
+    if overrun: mprint.pform("Overrun on buffer!", rtc.getTPlusMS(), output_log)
+
+# Start the data collection in a separate thread
+vibration_collection_thread = threading.Thread(target=collectVibrationData)
+vibration_collection_thread.daemon = True  # Set the thread as a daemon so it automatically stops when the main thread exits
+vibration_collection_thread.start()
 
 def logPressures():
     """
-    Get the pressures from every MPRLS and logs them to the CSV output
+    Get the pressures from every MPRLS and logs them to the CSV output.
     
     Returns a Pressure object with the pressure and time info:
             System Time (ms),
@@ -345,14 +353,29 @@ def logPressures():
 # Get our first pressure readings
 logPressures()
 
-"""
-# TODO: Are we going to scrap the serial? I'm alright doing that.
-# Open the serial port to the Secondary Pi
-PI_ser = serial.Serial(PORT, BAUD_RATE)
+def gswitch_callback(channel):
+    """
+    Handle the G-Switch input. This sets our reference T+0.
 
-# Send the string "Hello world"
-PI_ser.write(b"Hello world")
-"""
+    Parameters
+    ----------
+    channel : int
+        GPIO Pin.
+
+    Returns
+    -------
+    None.
+
+    """
+    t0 = timeMS()
+    GPIO.remove_event_detect(GSWITCH_PIN)
+    difference = rtc.setRef(t0)
+    mprint.pform("G-Switch input! New t0: " + str(t0) + " ms. Difference from RBF estimation: " + str(difference) + " ms", rtc.getTPlusMS(), output_log)
+    
+# Setup the G-Switch listener
+GPIO.setup(GSWITCH_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.add_event_detect(GSWITCH_PIN, GPIO.FALLING,
+                      callback=gswitch_callback, bouncetime=100)
 
 # Setup our Tank objects
 tank_1 = Tank(valve_1)
@@ -372,10 +395,8 @@ collection_3.mprls = mprls_tank_3
 # FUN BITS HERE
 
 def equalizeTanks():
-    """
-        Asseses the pressures of the tanks and makes necessary adjustments
-    """
-    
+    """Asseses the pressures of the tanks and makes necessary adjustments."""
+
     mprint.pform("Checking the pressures in the tanks for equalization...", rtc.getTPlusMS(), output_log)
     
     pressures = logPressures()
@@ -663,7 +684,7 @@ mprint.pform("Closed the Serial connection", rtc.getTPlusMS(), output_log)
 """
 
 # Close the output files
-mprint.pform("A mimir... zzz...", rtc.getTPlusMS(), output_log)
+mprint.pform("Sleeping...", rtc.getTPlusMS(), output_log)
 output_log.close()
 output_pressures.close()
 
