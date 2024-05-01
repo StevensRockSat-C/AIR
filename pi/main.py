@@ -320,7 +320,7 @@ else:   # Bruh. No RTC on the line. Guess that's it.
     mprint.p("NO RTC!! Going to assume it's 35 seconds past T-60", output_log)
     mprint.pform("T0: " + str(TIME_LAUNCH_MS) + " ms", rtc.getTPlusMS(), output_log)
 
-
+'''
 # Initialize the daqHat and begin collecting data
 daqhat = WrapDAQHAT(mprint, output_log)
 def collectVibrationData():
@@ -332,6 +332,12 @@ def collectVibrationData():
 vibration_collection_thread = threading.Thread(target=collectVibrationData)
 vibration_collection_thread.daemon = True  # Set the thread as a daemon so it automatically stops when the main thread exits
 vibration_collection_thread.start()
+'''
+daqhat = WrapDAQHAT(mprint, output_log)
+timesTried=0
+while ((not daqhat.connected) and timesTried<5):
+    overrun = daqhat.read_buffer_write_file(rtc.getT0MS())
+    timesTried+=1
 
 def logPressures():
     """
