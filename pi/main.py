@@ -116,6 +116,8 @@ class Valve:
     def open(self):
         """Pull the valve pin HIGH."""
         GPIO.setup(self.pin, GPIO.OUT) # Set the pin to the output
+        print("Open output on pin" , self.name)
+
         self.ready = True
         GPIO.output(self.pin, GPIO.HIGH)
         
@@ -125,6 +127,7 @@ class Valve:
         if not self.ready: GPIO.setup(self.pin, GPIO.OUT) # Set the pin to the output
         GPIO.output(self.pin, GPIO.LOW)
         GPIO.cleanup(self.pin)
+        print("Close output on pin" , self.name)
         self.ready = False
 
 class Tank:
@@ -329,7 +332,7 @@ else:   # Bruh. No RTC on the line. Guess that's it.
 # Initialize the daqHat and begin collecting data
 daqhat = WrapDAQHAT(mprint, output_log)
 def collectVibrationData():
-    threading.Timer(0.1, collectVibrationData).start() # Re-call the thread #shouldn't this be AFTER you read from the buffer?
+    threading.Timer(0.1, collectVibrationData).start() # Re-call the thread 
     overrun = daqhat.read_buffer_write_file(rtc.getTPlusMS())
     if overrun: mprint.pform("Overrun on buffer!", rtc.getTPlusMS(), output_log)
 
@@ -694,4 +697,4 @@ output_log.close()
 output_pressures.close()
 
 # Shutdown the system (No going back!)
-os.system("shutdown now")
+#os.system("shutdown now")
