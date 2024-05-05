@@ -111,16 +111,17 @@ class Valve:
     def __init__(self, pin, name):
         self.pin = pin
         self.name = name
-        GPIO.setup(self.pin, GPIO.OUT) # Set the pin to the output
         
     def open(self):
         """Pull the valve pin HIGH."""
+        GPIO.setup(self.pin, GPIO.OUT) # Set the pin to the output
         GPIO.output(self.pin, GPIO.HIGH)
         
     
     def close(self):
         """Pull the valve pin LOW."""
         GPIO.output(self.pin, GPIO.LOW)
+        GPIO.cleanup(self.pin)
 
 class Tank:
     """
