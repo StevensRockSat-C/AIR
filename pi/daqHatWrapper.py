@@ -2,6 +2,7 @@ from daqhats import mcc128, OptionFlags, HatIDs, AnalogInputMode, \
     AnalogInputRange
 from daqhats_utils import select_hat_device, chan_list_to_mask
 from time import sleep, time
+from RPi import GPIO
 
 
 def timeMS():
@@ -50,6 +51,9 @@ class WrapDAQHAT:
         except Exception as error:
             self.connected = False
             self.mprint.p("FAILED TO CONNECT TO MCC128!! Error: " + str(error) + "\tTime: " + str(timeMS()) + " ms", self.mainLogFile)
+            for pin in [9, 10, 11]:
+                if GPIO.gpio_function(pin) == GPIO.OUT:
+                    self.mprint.p("\tPin " + str(pin) + " in output mode!!\tTime: " + str(timeMS()) + " ms", self.mainLogFile)
         return self.connected
     
     
