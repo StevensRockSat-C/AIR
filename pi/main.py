@@ -82,7 +82,7 @@ VALVE_2_PIN = 9             # Second tank control pin
 VALVE_3_PIN = 11            # Third tank control pin
 GSWITCH_PIN = 23            # G-switch input pin
 
-# Setup our Colleciton objects. Numbers from SampleTiming.xlsx in the drive. All durations are going to be the minimum actuation time
+# Setup our Collection objects. Numbers from SampleTiming.xlsx in the drive. All durations are going to be the minimum actuation time
 collection_1 = Collection(num=1, up_start_time=40305, down_start_time=290000, bleed_duration=1, 
                           up_driving_pressure=1270.44, down_driving_pressure=998.20, upwards_bleed=False)
 collection_2 = Collection(num=2, up_start_time=70000, down_start_time=255000, bleed_duration=5, 
@@ -221,31 +221,48 @@ mprint.p("time & sys imported, files open. Time: " + str(timeMS()) + " ms\tFirst
 mprint.p("Version " + str(VERSION) + ". Time: " + str(timeMS()) + " ms", output_log)
 mprint.w("Time (ms),T+ (ms),Pressure Canister (hPa),Pressure Bleed (hPa),Pressure Valve 1 (hPa),Pressure Valve 2 (hPa),Pressure Valve 3 (hPa)", output_pressures) # Set up our CSV headers
 
+
+
+from daqHatWrapper import WrapDAQHAT
+daqhat = WrapDAQHAT(mprint, output_log)
+timesTried=0
+while ((not daqhat.connected) and timesTried<5):
+    daqhat = WrapDAQHAT(mprint, output_log)
+    timesTried+=1
+mprint.p("Attemping to read buffer data", output_log)
+overrun = daqhat.read_buffer_write_file(0)
+
+
 # Sensors
 from adafruit_extended_bus import ExtendedI2C as I2C
 import adafruit_tca9548a
 import adafruit_mprls
-from daqHatWrapper import WrapDAQHAT
 import threading # Threading the vibration data
 from RTC import RTC  # Our home-built Realtime Clock lib
+
+
+
+
 
 # Init GPIO
 #   We do this before connecting to i2c devices because we want to make sure our valves are closed!
 GPIO.setmode(GPIO_MODE)      # Use some made up BS numbers
 #GPIO.setmode(GPIO.BOARD)    # Use the board's physical pin numbers
 
+
 valve_main = Valve(VALVE_MAIN_PIN, "main")
 valve_bleed = Valve(VALVE_BLEED_PIN, "bleed")
 valve_1 = Valve(VALVE_1_PIN, "1")
-valve_2 = Valve(VALVE_2_PIN, "2")
-valve_3 = Valve(VALVE_3_PIN, "3")
+#valve_2 = Valve(VALVE_2_PIN, "2")
+#valve_3 = Valve(VALVE_3_PIN, "3")
 
 # Pull all the gates low
 valve_main.close()
 valve_bleed.close()
 valve_1.close()
-valve_2.close()
-valve_3.close()
+#valve_2.close()
+#valve_3.close()
+
 mprint.p("Valves pulled LOW. Time: " + str(timeMS()) + " ms", output_log)
 
 # Init i2c
@@ -301,6 +318,9 @@ else:
 # Connect to the RTC
 rtc = RTC(i2c)
 
+
+
+
 # Establish our T0
 time_try_rtc = timeMS()
 while (not rtc.isReady()) and (time_try_rtc + 3000 > timeMS()): # Wait for up to 3 seconds for RTC.
@@ -333,11 +353,7 @@ vibration_collection_thread = threading.Thread(target=collectVibrationData)
 vibration_collection_thread.daemon = True  # Set the thread as a daemon so it automatically stops when the main thread exits
 vibration_collection_thread.start()
 '''
-daqhat = WrapDAQHAT(mprint, output_log)
-timesTried=0
-while ((not daqhat.connected) and timesTried<5):
-    overrun = daqhat.read_buffer_write_file(rtc.getT0MS())
-    timesTried+=1
+
 
 def logPressures():
     """
@@ -358,6 +374,7 @@ def logPressures():
 
 # Get our first pressure readings
 logPressures()
+overrun = daqhat.read_buffer_write_file(1)
 
 def gswitch_callback(channel):
     """
@@ -383,6 +400,7 @@ GPIO.setup(GSWITCH_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.add_event_detect(GSWITCH_PIN, GPIO.FALLING,
                       callback=gswitch_callback, bouncetime=100)
 
+"""
 # Setup our Tank objects
 tank_1 = Tank(valve_1)
 tank_2 = Tank(valve_2)
@@ -396,7 +414,7 @@ collection_3.tank = tank_3
 collection_1.mprls = mprls_tank_1
 collection_2.mprls = mprls_tank_2
 collection_3.mprls = mprls_tank_3
-
+"""
 
 # FUN BITS HERE
 
@@ -481,6 +499,7 @@ for collection in collections:
             mprint.pform("Waiting for sample collection " + collection.num + " at " + str(collection.up_start_time) + " ms. Try #" + str(collection.sampled_count), rtc.getTPlusMS(), output_log)
             while rtc.getTPlusMS() < collection.up_start_time:
                 logPressures()
+                overrun = daqhat.read_buffer_write_file(2)
             
             if collection.upwards_bleed:
                 mprint.pform("Checking bleed tank pressure for sample collection " + str(collection.num), rtc.getTPlusMS(), output_log)
@@ -695,4 +714,4 @@ output_log.close()
 output_pressures.close()
 
 # Shutdown the system (No going back!)
-os.system("shutdown now")
+#os.system("shutdown now")

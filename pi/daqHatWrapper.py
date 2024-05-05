@@ -47,9 +47,9 @@ class WrapDAQHAT:
             self.hat.a_in_range_write(AnalogInputRange.BIP_5V)
             self.hat.a_in_scan_start(self.channelList, self.samples_per_channel, self.sampleRate, OptionFlags.CONTINUOUS)
             self.connected = True
-        except:
+        except Exception as err:
             self.connected = False
-            self.mprint.p("FAILED TO CONNECT TO MCC128!! Time: " + str(timeMS()) + " ms", self.mainLogFile)
+            self.mprint.p("FAILED TO CONNECT TO MCC128!! Error: " + str(err) + "\n\tTime: " + str(timeMS()) + " ms", self.mainLogFile)
         return self.connected
     
     
@@ -81,7 +81,7 @@ class WrapDAQHAT:
             using multiprint
         """
         data_csv = ''
-        for row in range(len(data)/self.numChannels):
+        for row in range(int(len(data)/self.numChannels)):
             data_csv += ("," if (row != int(len(data)/self.numChannels) - 1) else (str(endTime) + ",")) # Only write timestamp to last value
             for i in range(self.numChannels):
                 data_csv += ("," + str(data[row*self.numChannels + i]))
@@ -117,7 +117,7 @@ class WrapDAQHAT:
                         self.overrun = True
             return self.overrun
         except:
-            self.mprint.p("WAS CONNECTED TO MCC128 BUT CAN'T GET DATA!! Time: " + str(timeMS()) + " ms")
+            self.mprint.p("WAS CONNECTED TO MCC128 BUT CAN'T GET DATA!! Time: " + str(timeMS()) + " ms", self.mainLogFile)
             self.connected = False
             return False
     
