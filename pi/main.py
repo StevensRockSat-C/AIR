@@ -77,9 +77,9 @@ DEFAULT_BOOT_TIME = 35000   # The estimated time to boot and run the beginnings 
 GPIO_MODE = GPIO.BCM
 VALVE_MAIN_PIN = 27         # Parker 11/25/26 Main Valve control pin
 VALVE_BLEED_PIN = 22        # ASCO Bleed Valve control pin
-VALVE_1_PIN = 10            # First tank control pin
-VALVE_2_PIN = 9             # Second tank control pin
-VALVE_3_PIN = 11            # Third tank control pin
+VALVE_1_PIN = 24            # First tank control pin
+VALVE_2_PIN = 25            # Second tank control pin
+VALVE_3_PIN = 18            # Third tank control pin
 GSWITCH_PIN = 23            # G-switch input pin
 
 # Setup our Colleciton objects. Numbers from SampleTiming.xlsx in the drive. All durations are going to be the minimum actuation time
@@ -202,7 +202,7 @@ class PressuresOBJ:
 import time
 
 def timeMS():
-    """Returns system time to MS."""
+    """Get system time to MS."""
     return round(time.time()*1000)
 
 FIRST_ON_MS = timeMS() # Record the very first moment we are running the script
@@ -375,7 +375,7 @@ def gswitch_callback(channel):
 # Setup the G-Switch listener
 GPIO.setup(GSWITCH_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.add_event_detect(GSWITCH_PIN, GPIO.FALLING,
-                      callback=gswitch_callback, bouncetime=100)
+                      callback=gswitch_callback, bouncetime=10)
 
 # Setup our Tank objects
 tank_1 = Tank(valve_1)
