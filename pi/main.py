@@ -70,7 +70,7 @@ class Collection:
         self.sampled_count = 0      # The number of times we've tried to sample
 
 # ---- SETTINGS ----
-VERSION = "1.3.0"
+VERSION = "1.3.1"
 
 DEFAULT_BOOT_TIME = 35000   # The estimated time to boot and run the beginnings of the script, in MS. Will be used only if RTC is not live
 
@@ -144,11 +144,10 @@ class Tank:
 
 
 class WrapMPRLS:
-
     """
-        Wrap the MPRLS library to prevent misreads
-        
-        multiplexerLine: The multiplexed i2c line. If not specified, this object will become dormant
+    Wrap the MPRLS library to prevent misreads.
+    
+    multiplexerLine: The multiplexed i2c line. If not specified, this object will become dormant
     """
     
     def __init__(self, multiplexerLine=False):
@@ -324,11 +323,23 @@ else:   # Bruh. No RTC on the line. Guess that's it.
 # Initialize the daqHat and begin collecting data
 daqhat = WrapDAQHAT(mprint, output_log)
 def collectVibrationData():
-    threading.Timer(0.1, collectVibrationData).start() # Re-call the thread #shouldn't this be AFTER you read from the buffer?
+    """
+    Begin collecting vibration data via a thread.
+
+    Returns
+    -------
+    None.
+
+    """
+    global stop_vibration_thread   # Called True at the end of the script
+    if stop_vibration_thread: return
+
+    threading.Timer(0.2, collectVibrationData).start() # Re-call the thread #shouldn't this be AFTER you read from the buffer?
     overrun = daqhat.read_buffer_write_file(rtc.getTPlusMS())
     if overrun: mprint.pform("Overrun on buffer!", rtc.getTPlusMS(), output_log)
 
 # Start the data collection in a separate thread
+stop_vibration_thread = False
 vibration_collection_thread = threading.Thread(target=collectVibrationData)
 vibration_collection_thread.daemon = True  # Set the thread as a daemon so it automatically stops when the main thread exits
 vibration_collection_thread.start()
@@ -668,6 +679,11 @@ else:
 """
     Clean everything up
 """
+# End the connection to the MCC128 (Vibration ADC)
+stop_vibration_thread = True
+vibration_collection_thread.join()
+daqhat.close()
+
 # Close the GPIO setup
 valve_main.close()
 valve_bleed.close()
