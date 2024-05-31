@@ -677,12 +677,6 @@ valve_3.close()
 GPIO.cleanup()
 mprint.pform("Cleaned up the GPIO", rtc.getTPlusMS(), output_log)
 
-"""
-# Close the serial port
-PI_ser.close()
-mprint.pform("Closed the Serial connection", rtc.getTPlusMS(), output_log)
-"""
-
 # Close the output files
 mprint.pform("Sleeping...", rtc.getTPlusMS(), output_log)
 output_log.close()
