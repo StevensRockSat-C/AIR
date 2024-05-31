@@ -16,7 +16,7 @@ This does the following:
     Adjust procedures if an MRPLS cannot connect
 
 This STILL NEEDS TO DO:
-    ...nothing more?
+    CONTINUALLY log vibration data
 """
 
 # Communications
@@ -70,7 +70,7 @@ class Collection:
         self.sampled_count = 0      # The number of times we've tried to sample
 
 # ---- SETTINGS ----
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 
 DEFAULT_BOOT_TIME = 35000   # The estimated time to boot and run the beginnings of the script, in MS. Will be used only if RTC is not live
 
@@ -81,6 +81,13 @@ VALVE_1_PIN = 24            # First tank control pin
 VALVE_2_PIN = 25            # Second tank control pin
 VALVE_3_PIN = 18            # Third tank control pin
 GSWITCH_PIN = 23            # G-switch input pin
+"""
+VALVE_MAIN_PIN = 13 (BOARD) -> 27 (BCM)
+VALVE_BLEED_PIN = 15 (BOARD) -> 22 (BCM)
+VALVE_1_PIN = 18 (BOARD) -> 24 (BCM)
+VALVE_2_PIN = 22 (BOARD) -> 25 (BCM)
+VALVE_3_PIN = 12 (BOARD) -> 18 (BCM)
+"""
 
 # Setup our Colleciton objects. Numbers from SampleTiming.xlsx in the drive. All durations are going to be the minimum actuation time
 collection_1 = Collection(num=1, up_start_time=40305, down_start_time=290000, bleed_duration=1, 
@@ -92,13 +99,6 @@ collection_3 = Collection(num=3, up_start_time=90000, down_start_time=230000, bl
 
 collections = [collection_1, collection_2, collection_3]
 
-"""
-VALVE_MAIN_PIN = 13 (BOARD) -> 27 (BCM)
-VALVE_BLEED_PIN = 15 (BOARD) -> 22 (BCM)
-VALVE_1_PIN = 19 (BOARD) -> 10 (BCM)
-VALVE_2_PIN = 21 (BOARD) -> 9 (BCM)
-VALVE_3_PIN = 23 (BOARD) -> 11 (BCM)
-"""
 
 
 class Valve:
