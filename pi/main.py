@@ -673,16 +673,23 @@ if not all_good:
             mprint.pform("NOT sampling collection " + collection.num + " on the way down", rtc.getTPlusMS(), output_log)
 
 else:
-    mprint.pform("We sampled everything on the way up sucessfully! Let's shut it down.", rtc.getTPlusMS(), output_log)
+    mprint.pform("We sampled everything on the way up sucessfully!", rtc.getTPlusMS(), output_log)
 
+
+mprint.pform("Waiting for end of flight at 805000 ms.", rtc.getTPlusMS(), output_log)
+while rtc.getTPlusMS() < 805000:
+    continue
 
 """
     Clean everything up
 """
+mprint.pform("Cleaning up the system.", rtc.getTPlusMS(), output_log)
+
 # End the connection to the MCC128 (Vibration ADC)
 stop_vibration_thread = True
 vibration_collection_thread.join()
 daqhat.close()
+mprint.pform("Cleaned and closed the DAQHAT/MCC128.", rtc.getTPlusMS(), output_log)
 
 # Close the GPIO setup
 valve_main.close()
@@ -694,7 +701,7 @@ GPIO.cleanup()
 mprint.pform("Cleaned up the GPIO", rtc.getTPlusMS(), output_log)
 
 # Close the output files
-mprint.pform("Sleeping...", rtc.getTPlusMS(), output_log)
+mprint.pform("A mimir...", rtc.getTPlusMS(), output_log)
 output_log.close()
 output_pressures.close()
 
