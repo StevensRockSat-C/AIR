@@ -614,6 +614,8 @@ equalizeTanks()
     
     TODO: Change logic to sample on way up if a sample tank holds a good pressure,
     but the bleed tank is dead / full. Instead, vent to space for a moment and then collect.
+    
+    TODO: DO NOT SAMPLE IF A TANK IS DEAD!!!
 """
 for collection in collections:
     if collection.sample_upwards:
