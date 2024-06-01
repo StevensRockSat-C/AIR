@@ -611,6 +611,9 @@ equalizeTanks()
 
 """
     Upwards sampling management
+    
+    TODO: Change logic to sample on way up if a sample tank holds a good pressure,
+    but the bleed tank is dead / full. Instead, vent to space for a moment and then collect.
 """
 for collection in collections:
     if collection.sample_upwards:
@@ -633,7 +636,7 @@ for collection in collections:
                 else:
                     mprint.pform("Sample collection " + str(collection.num) + " requires a full bleed for a driving pressure of " + str(collection.up_driving_pressure) + 
                                  " hPa, which is greater than the bleed tank pressure of " + str(temp_bleed_pressure) + " hPa.", rtc.getTPlusMS(), output_log)
-                    
+                
                 mprint.pform("Beginning outside bleed for sample collection " + collection.num, rtc.getTPlusMS(), output_log)
                 valve_main.open()
                 mprint.pform("VALVE_MAIN pulled HIGH", rtc.getTPlusMS(), output_log)
