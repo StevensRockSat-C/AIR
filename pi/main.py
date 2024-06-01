@@ -470,11 +470,12 @@ equalizeTanks()
     
     TODO: Change logic to sample on way up if a sample tank holds a good pressure,
     but the bleed tank is dead / full. Instead, vent to space for a moment and then collect.
-    
-    TODO: DO NOT SAMPLE IF A TANK IS DEAD!!!
 """
 for collection in collections:
     if collection.sample_upwards:
+        if collection.tank.dead:
+            mprint.pform("Sample collection " + collection.num + " at " + str(collection.up_start_time) + " ms has a dead tank! We'll skip it.", rtc.getTPlusMS(), output_log)
+            continue
         while True:
             collection.sampled_count += 1
             mprint.pform("Waiting for sample collection " + collection.num + " at " + str(collection.up_start_time) + " ms. Try #" + str(collection.sampled_count), rtc.getTPlusMS(), output_log)
