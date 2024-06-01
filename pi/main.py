@@ -17,6 +17,7 @@ This does the following:
 
 This STILL NEEDS TO DO:
     CONTINUALLY log vibration data
+    Prevent bleeding if proper conditions cannot be validated
 """
 
 # Communications
@@ -90,12 +91,30 @@ VALVE_3_PIN = 12 (BOARD) -> 18 (BCM)
 """
 
 # Setup our Colleciton objects. Numbers from SampleTiming.xlsx in the drive. All durations are going to be the minimum actuation time
-collection_1 = Collection(num=1, up_start_time=40305, down_start_time=290000, bleed_duration=1, 
-                          up_driving_pressure=1270.44, down_driving_pressure=998.20, upwards_bleed=False)
-collection_2 = Collection(num=2, up_start_time=70000, down_start_time=255000, bleed_duration=5, 
-                          up_driving_pressure=753.43, down_driving_pressure=545.52, upwards_bleed=True)
-collection_3 = Collection(num=3, up_start_time=90000, down_start_time=230000, bleed_duration=36,  
-                          up_driving_pressure=490.13, down_driving_pressure=329.96, upwards_bleed=True)
+collection_1 = Collection(num = 1,
+                          up_start_time = 40305,
+                          down_start_time = 290000,
+                          bleed_duration = 1, 
+                          up_driving_pressure = 1270.44,
+                          down_driving_pressure = 998.20,
+                          upwards_bleed = False
+                          )
+collection_2 = Collection(num = 2,
+                          up_start_time = 70000,
+                          down_start_time = 255000,
+                          bleed_duration = 5,
+                          up_driving_pressure = 753.43,
+                          down_driving_pressure = 545.52,
+                          upwards_bleed = True
+                          )
+collection_3 = Collection(num = 3,
+                          up_start_time = 90000,
+                          down_start_time = 230000,
+                          bleed_duration = 36,
+                          up_driving_pressure = 490.13,
+                          down_driving_pressure = 329.96,
+                          upwards_bleed = True
+                          )
 
 collections = [collection_1, collection_2, collection_3]
 
@@ -395,8 +414,12 @@ collection_3.mprls = mprls_tank_3
 # FUN BITS HERE
 
 def equalizeTanks():
-    """Asseses the pressures of the tanks and makes necessary adjustments."""
-
+    """
+    Asseses the pressures of the tanks and equalize the pressures.
+    
+    If necessary, connections between 2 tanks will be opened to equalize
+    a larger pressure with a smaller pressure tank.
+    """
     mprint.pform("Checking the pressures in the tanks for equalization...", rtc.getTPlusMS(), output_log)
     
     pressures = logPressures()
