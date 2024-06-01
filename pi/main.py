@@ -151,7 +151,7 @@ class Tank:
     
     def __init__(self, valve):
         self.valve = valve
-        self.pressure = -1
+        self.mprls = WrapMPRLS()
         self.sampled = False
         self.dead = False   # Set to True if we believe this tank can't hold a sample, i.e. the pressure in the tank is 100 kPa
         
@@ -401,6 +401,10 @@ tank_1 = Tank(valve_1)
 tank_2 = Tank(valve_2)
 tank_3 = Tank(valve_3)
 tank_bleed = Tank(valve_bleed)
+tank_1.mprls = mprls_tank_1
+tank_2.mprls = mprls_tank_2
+tank_3.mprls = mprls_tank_3
+tank_bleed.mprls = mprls_bleed
 
 # Connect the Tanks and MPRLS to their respective collection periods
 collection_1.tank = tank_1
@@ -412,6 +416,121 @@ collection_3.mprls = mprls_tank_3
 
 
 # FUN BITS HERE
+def initialPressureCheck():
+    tanks = [tank_1, tank_2, tank_3, tank_bleed]
+    mprint.pform("Performing Initial Pressure Check.", rtc.getTPlusMS(), output_log)
+    
+    for tank in tanks:
+        if tank.mprls.cantConnect:
+            mprint.pform("Pressure in Tank " + tank.valve.name + " cannot be determined! Marked it as dead", rtc.getTPlusMS(), output_log)
+            tank.dead = True
+        elif tank.mprls.pressure > 900:
+            mprint.pform("Pressure in Tank " + tank.valve.name + " is atmospheric. Marked it as dead", rtc.getTPlusMS(), output_log)
+            tank.dead = True
+        else:
+            mprint.pform("Pressure in Tank " + tank.valve.name + " is " + str(tank.mprls.pressure) + ". All good.", rtc.getTPlusMS(), output_log)
+
+initialPressureCheck()
+
+def swapTanks():
+    """
+    Asseses the pressures of the tanks and swaps tanks between collections, if possible.
+
+    We're going to prioritze Collection 1. From Camden, each sample is pretty
+        much as valid. However, since Collection 1 actually brings in more air,
+        it's the most likely to bring in results.
+
+    Returns
+    -------
+    None.
+
+    """
+    mprint.pform("Checking the pressures in the tanks for swaps...", rtc.getTPlusMS(), output_log)
+    
+    if collection_3.tank.dead:
+        if collection_1.tank.dead:
+            if collection_2.tank.dead:
+                mprint.pform("All tanks are dead! We will wait for the dead test to collect.", rtc.getTPlusMS(), output_log)
+                return False
+            else:
+                mprint.pform("SWAPPING TANK 2 FOR TANK 3. This is because T1 & T3 are dead and T3 gets priority.", rtc.getTPlusMS(), output_log)
+                collection_2.tank = tank_3
+                collection_2.mprls = mprls_tank_3
+                collection_3.tank = tank_2
+                collection_3.mprls = mprls_tank_2
+        else:
+            mprint.pform("SWAPPING TANK 1 FOR TANK 3. This is because T3 is dead and T3 gets priority.", rtc.getTPlusMS(), output_log)
+            collection_1.tank = tank_3
+            collection_1.mprls = mprls_tank_3
+            collection_3.tank = tank_1
+            collection_3.mprls = mprls_tank_1
+            return swapTanks()
+    else:
+        if collection_1.tank.dead:
+            if collection_2.tank.dead:
+                mprint.pform("Tank 3 is the only alive sample tank. Leaving it alone for now.", rtc.getTPlusMS(), output_log)
+            else:
+                mprint.pform("SWAPPING TANK 1 FOR TANK 2. This is because T1 is dead and T1 gets priority over T2.", rtc.getTPlusMS(), output_log)
+                collection_1.tank = tank_2
+                collection_1.mprls = mprls_tank_2
+                collection_2.tank = tank_1
+                collection_2.mprls = mprls_tank_1
+        else:
+            if collection_2.tank.dead:
+                mprint.pform("Tank 2 is the only dead sample tank. As it has last priority, we are leaving it alone for now.", rtc.getTPlusMS(), output_log)
+    
+    if not collection_2.tank.dead:
+        if collection_3.mprls.pressure >= collection_3.up_driving_pressure:
+            if collection_1.mprls.pressure >= collection_3.up_driving_pressure:
+                if not (collection_2.mprls.pressure >= collection_3.up_driving_pressure):
+                    mprint.pform("SWAPPING TANK 2 FOR TANK 3. This is because T2's pressure satisfies C3, while neither T1 or T3 do.", rtc.getTPlusMS(), output_log)
+                    collection_2.tank = tank_3
+                    collection_2.mprls = mprls_tank_3
+                    collection_3.tank = tank_2
+                    collection_3.mprls = mprls_tank_2
+            else:
+                mprint.pform("SWAPPING TANK 1 FOR TANK 3. This is because T1's pressure satisfies C3, while T3 doesn't.", rtc.getTPlusMS(), output_log)
+                collection_1.tank = tank_3
+                collection_1.mprls = mprls_tank_3
+                collection_3.tank = tank_1
+                collection_3.mprls = mprls_tank_1
+        
+        if collection_2.mprls.pressure >= collection_2.up_driving_pressure:
+            if collection_1.tank.pressure >= collection_2.up_driving_pressure:
+                mprint.pform("Collection 2's Tank (" + str(collection_2.tank.valve.name) + ") is too high to sample. There is no tank to replace it. It needs to be equalized or some other method.", rtc.getTPlusMS(), output_log)
+                # TODO: Ask Camden what logic should be taken from here, if not just sampling on the way down.
+                collection_2.sample_upwards = False
+                return False
+            else:
+                mprint.pform("SWAPPING TANK 1 FOR TANK 2. This is because T1's pressure satisfies C2, while T2 doesn't.", rtc.getTPlusMS(), output_log)
+                collection_1.tank = tank_2
+                collection_1.mprls = mprls_tank_2
+                collection_2.tank = tank_1
+                collection_2.mprls = mprls_tank_1
+                return False
+        else:
+            mprint.pform("Collection 2's Tank (" + str(collection_2.tank.valve.name) + ") is below it's driving pressure and is good to sample.", rtc.getTPlusMS(), output_log)
+            return False
+    else:
+        if collection_3.mprls.pressure >= collection_3.up_driving_pressure:
+            if not collection_1.tank.dead:
+                mprint.pform("SWAPPING TANK 1 FOR TANK 3. This is because T1's pressure satisfies C3, while T3 doesn't and T2 is dead.", rtc.getTPlusMS(), output_log)
+                collection_1.tank = tank_3
+                collection_1.mprls = mprls_tank_3
+                collection_3.tank = tank_1
+                collection_3.mprls = mprls_tank_1
+                return False
+            else:
+                mprint.pform("Collection 3's Tank (" + str(collection_3.tank.valve.name) + ") is too high to sample. There is no tank to replace it. It needs to be equalized or some other method.", rtc.getTPlusMS(), output_log)
+                # TODO: Ask Camden what logic should be taken from here, if not just sampling on the way down.
+                collection_3.sample_upwards = False
+                return False
+        else:
+            mprint.pform("All tanks are alive and of the correct vacuumed pressures. Leaving the system be.", rtc.getTPlusMS(), output_log)
+            return True
+            
+swapTanks()
+mprint.pform("swapTanks complete.", rtc.getTPlusMS(), output_log)
 
 def equalizeTanks():
     """
@@ -485,6 +604,8 @@ def equalizeTanks():
     
     return True
     
+
+
 equalizeTanks()
 
 
