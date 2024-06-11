@@ -728,7 +728,7 @@ if not all_good:
             if collection.tank.dead:
                 mprint.pform("Testing Tank " + collection.tank.valve.name, rtc.getTPlusMS(), output_log)
                 
-                start_canister_pressure = logPressures().canister_pressure
+                start_canister_pressure = mprls_canister.triple_pressure
                 mprint.pform("Starting canister pressure - " + str(start_canister_pressure) + " hPa", rtc.getTPlusMS(), output_log)
                 
                 valve_main.open()
@@ -743,7 +743,7 @@ if not all_good:
                 collection.tank.valve.close()
                 mprint.pform("VALVE_MAIN and VALVE_" + collection.tank.valve.name + " pulled LOW", rtc.getTPlusMS(), output_log)
                 
-                end_canister_pressure = logPressures().canister_pressure
+                end_canister_pressure = mprls_canister.triple_pressure
                 mprint.pform("Ending canister pressure - " + str(end_canister_pressure) + " hPa", rtc.getTPlusMS(), output_log)
                 # TODO: Can we get a real number for this? I'm just using 3 hPa based on the known STD of the sensors
                 if start_canister_pressure - end_canister_pressure < 3: # We just leaked 3 hPa from the WHOLE FUCKING ROCKET in 1 second
