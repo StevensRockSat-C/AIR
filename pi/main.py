@@ -22,6 +22,7 @@ This STILL NEEDS TO DO:
 
 # Communications
 from RPi import GPIO
+from statistics import median
 
 class Collection:
     """
@@ -163,11 +164,10 @@ class Tank:
 
 
 class WrapMPRLS:
-
     """
-        Wrap the MPRLS library to prevent misreads
-        
-        multiplexerLine: The multiplexed i2c line. If not specified, this object will become dormant
+    Wrap the MPRLS library to prevent misreads.
+    
+    multiplexerLine: The multiplexed i2c line. If not specified, this object will become dormant
     """
     
     def __init__(self, multiplexerLine=False):
@@ -187,6 +187,15 @@ class WrapMPRLS:
         if self.cantConnect: return -1
         return self.mprls.pressure
 
+    def _get_triple_pressure(self):
+        if self.cantConnect: return -1
+        pressures = []
+        for i in range(3):
+            pressures.append(self.mprls.pressure)
+            if i < 2: time.sleep(0.05) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
+            
+        return median(pressures)
+    
     def _set_pressure(self, value):
         pass
 
@@ -201,6 +210,17 @@ class WrapMPRLS:
         fset=_set_pressure,
         fdel=_del_pressure,
         doc="The pressure of the MPRLS or -1 if we can't connect to it"
+    )
+    
+    """
+        Adds ~10 ms of delay!
+        Acts as a wrapper for the pressure property of the standard MPRLS.
+    """
+    triple_pressure = property(
+        fget=_get_triple_pressure,
+        fset=_set_pressure,
+        fdel=_del_pressure,
+        doc="The 3-sample median pressure of the MPRLS or -1 if we can't connect to it"
     )
 
 
