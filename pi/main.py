@@ -78,16 +78,16 @@ DEFAULT_BOOT_TIME = 35000   # The estimated time to boot and run the beginnings 
 GPIO_MODE = GPIO.BCM
 VALVE_MAIN_PIN = 27         # Parker 11/25/26 Main Valve control pin
 VALVE_BLEED_PIN = 22        # ASCO Bleed Valve control pin
-VALVE_1_PIN = 24            # First tank control pin
-VALVE_2_PIN = 25            # Second tank control pin
-VALVE_3_PIN = 18            # Third tank control pin
+VALVE_1_PIN = 10            # First tank control pin
+VALVE_2_PIN = 9             # Second tank control pin
+VALVE_3_PIN = 11            # Third tank control pin
 GSWITCH_PIN = 23            # G-switch input pin
 """
 VALVE_MAIN_PIN = 13 (BOARD) -> 27 (BCM)
 VALVE_BLEED_PIN = 15 (BOARD) -> 22 (BCM)
-VALVE_1_PIN = 18 (BOARD) -> 24 (BCM)
-VALVE_2_PIN = 22 (BOARD) -> 25 (BCM)
-VALVE_3_PIN = 12 (BOARD) -> 18 (BCM)
+VALVE_1_PIN = 19 (BOARD) -> 10 (BCM)
+VALVE_2_PIN = 21 (BOARD) -> 9 (BCM)
+VALVE_3_PIN = 23 (BOARD) -> 11 (BCM)
 """
 
 # Setup our Colleciton objects. Numbers from SampleTiming.xlsx in the drive. All durations are going to be the minimum actuation time
