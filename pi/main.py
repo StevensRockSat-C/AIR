@@ -618,7 +618,8 @@ equalizeTanks()
 for collection in collections:
     if collection.sample_upwards:
         if collection.tank.dead:
-            mprint.pform("Sample collection " + collection.num + " at " + str(collection.up_start_time) + " ms has a dead tank! We'll skip it.", rtc.getTPlusMS(), output_log)
+            mprint.pform("Sample collection " + collection.num + " at " + str(collection.up_start_time) + " ms has a dead tank! We'll sample it on the way down at " + str(collection.down_start_time) + " ms", rtc.getTPlusMS(), output_log)
+            collection.sample_upwards = False
             continue
         while True:
             collection.sampled_count += 1
