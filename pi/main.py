@@ -315,7 +315,7 @@ if multiplex != False:
     
     mprint.p("MPRLS' connected. Time: " + str(timeMS()) + " ms", output_log)
 else:
-    mprint.p("NOT CONNECTING TO THE MPRLS because there's no multiplexer on the line!!", output_log)
+    mprint.p("NOT CONNECTING TO THE MPRLS because there's no multiplexer on the line!!. Time: " + str(timeMS()) + " ms", output_log)
 
 # Connect to the RTC
 rtc = RTC(i2c)
@@ -336,7 +336,7 @@ else:   # Bruh. No RTC on the line. Guess that's it.
     TIME_LAUNCH_MS = FIRST_ON_MS - DEFAULT_BOOT_TIME + 60000 # We'll assume 35 seconds in, based on lab testing. Add 60 seconds from 1.SYS.1 Early Activation
     rtc.setRef(TIME_LAUNCH_MS)
     
-    mprint.p("NO RTC!! Going to assume it's 35 seconds past T-60", output_log)
+    mprint.p("NO RTC!! Going to assume it's 35 seconds past T-60. Time: " + str(timeMS()) + " ms", output_log)
     mprint.pform("T0: " + str(TIME_LAUNCH_MS) + " ms", rtc.getTPlusMS(), output_log)
 
 
@@ -621,7 +621,7 @@ for collection in collections:
     if collection.sample_upwards:
         while True:
             collection.sampled_count += 1
-            mprint.pform("Waiting for sample collection " + collection.num + " at " + str(collection.up_start_time) + " ms. Try #" + str(collection.sampled_count), rtc.getTPlusMS(), output_log)
+            mprint.pform("Waiting for upwards sample collection " + collection.num + " at " + str(collection.up_start_time) + " ms. Try #" + str(collection.sampled_count), rtc.getTPlusMS(), output_log)
             while rtc.getTPlusMS() < collection.up_start_time:
                 logPressures()
             
@@ -772,7 +772,7 @@ if not all_good:
         if not collection.sample_upwards and not collection.tank.dead:
             while True:
                 collection.sampled_count += 1
-                mprint.pform("Waiting for sample collection " + collection.num + " at " + str(collection.down_start_time) + " ms. Try #" + str(collection.sampled_count), rtc.getTPlusMS(), output_log)
+                mprint.pform("Waiting for downwards sample collection " + collection.num + " at " + str(collection.down_start_time) + " ms. Try #" + str(collection.sampled_count), rtc.getTPlusMS(), output_log)
                 while rtc.getTPlusMS() < collection.down_start_time:
                     logPressures()
                 
