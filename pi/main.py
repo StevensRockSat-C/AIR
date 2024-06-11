@@ -743,7 +743,7 @@ if not all_good:
     mprint.pform("VALVE_MAIN and VALVE_BLEED pulled HIGH", rtc.getTPlusMS(), output_log)
     
     for collection in collections:
-        if not collection.sample_upwards:
+        if not collection.sample_upwards and not collection.tank.dead:
             collection.tank.valve.open()
             collection.tank.sampled = False
             collection.sampled = False
