@@ -826,6 +826,11 @@ valve_3.close()
 GPIO.cleanup()
 mprint.pform("Cleaned up the GPIO", rtc.getTPlusMS(), output_log)
 
+# Save the current time to the system
+mprint.pform("Saving the current time to the system...", rtc.getTPlusMS(), output_log)
+os.system("fake-hwclock save")
+mprint.pform("Done saving current time.", rtc.getTPlusMS(), output_log)
+
 # Close the output files
 mprint.pform("Sleeping...", rtc.getTPlusMS(), output_log)
 output_log.close()
