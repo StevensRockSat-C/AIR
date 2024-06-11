@@ -732,7 +732,7 @@ if not all_good:
                 else:
                     mprint.pform("The difference of pressures of " + str(start_canister_pressure - end_canister_pressure) + " hPa is SIGNIFICANT! We will keep Tank " + collection.tank.valve.name + " marked as dead.", rtc.getTPlusMS(), output_log)
     
-    mprint.pform("Waiting for apogee at 170000 ms.", rtc.getTPlusMS(), output_log)
+    mprint.pform("Waiting for apogee at 170000 ms to vent.", rtc.getTPlusMS(), output_log)
     while rtc.getTPlusMS() < 170000:
         logPressures()
         
