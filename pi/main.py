@@ -190,9 +190,9 @@ class WrapMPRLS:
     def _get_triple_pressure(self):
         if self.cantConnect: return -1
         pressures = []
-        for i in range(3):
+        for e in range(3):
             pressures.append(self.mprls.pressure)
-            if i < 2: time.sleep(0.005) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
+            if e < 2: time.sleep(0.005) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
             
         return median(pressures)
     
@@ -404,7 +404,7 @@ def logPressuresTriple():
             Tank 2 Pressure (hpa),
             Tank 3 Pressure (hpa)
     """
-    pressures = PressuresOBJ(timeMS(), rtc.getTPlusMS(), mprls_canister._get_triple_pressure(), mprls_bleed._get_triple_pressure(), mprls_tank_1._get_triple_pressure(), mprls_tank_2._get_triple_pressure(), mprls_tank_3._get_triple_pressure())
+    pressures = PressuresOBJ(timeMS(), rtc.getTPlusMS(), mprls_canister.triple_pressure, mprls_bleed.triple_pressure, mprls_tank_1.triple_pressure, mprls_tank_2.triple_pressure, mprls_tank_3.triple_pressure)
     mprint.p(str(pressures.time_MS) + "," + str(pressures.TPlus_MS) + "," + str(pressures.canister_pressure) + "," + str(pressures.bleed_pressure) + "," + str(pressures.tank_1_pressure) + "," + str(pressures.tank_2_pressure) + "," + str(pressures.tank_3_pressure), output_pressures)
     return pressures
 
