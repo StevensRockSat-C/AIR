@@ -389,6 +389,25 @@ def logPressures():
     mprint.p(str(pressures.time_MS) + "," + str(pressures.TPlus_MS) + "," + str(pressures.canister_pressure) + "," + str(pressures.bleed_pressure) + "," + str(pressures.tank_1_pressure) + "," + str(pressures.tank_2_pressure) + "," + str(pressures.tank_3_pressure), output_pressures)
     return pressures
 
+
+def logPressuresTriple():
+    """
+    Get the pressures from every MPRLS and logs them to the CSV output.
+    Adds about 50 ms
+    
+    Returns a Pressure object with the pressure and time info:
+            System Time (ms),
+            T+ (ms),
+            Canister Pressure (hpa),
+            Bleed Pressure (hpa),
+            Tank 1 Pressure (hpa),
+            Tank 2 Pressure (hpa),
+            Tank 3 Pressure (hpa)
+    """
+    pressures = PressuresOBJ(timeMS(), rtc.getTPlusMS(), mprls_canister._get_triple_pressure(), mprls_bleed._get_triple_pressure(), mprls_tank_1._get_triple_pressure(), mprls_tank_2._get_triple_pressure(), mprls_tank_3._get_triple_pressure())
+    mprint.p(str(pressures.time_MS) + "," + str(pressures.TPlus_MS) + "," + str(pressures.canister_pressure) + "," + str(pressures.bleed_pressure) + "," + str(pressures.tank_1_pressure) + "," + str(pressures.tank_2_pressure) + "," + str(pressures.tank_3_pressure), output_pressures)
+    return pressures
+
 # Get our first pressure readings
 logPressures()
 
@@ -561,7 +580,7 @@ def equalizeTanks():
     """
     mprint.pform("Checking the pressures in the tanks for equalization...", rtc.getTPlusMS(), output_log)
     
-    pressures = logPressures()
+    pressures = logPressuresTriple()
     
     if (mprls_tank_3.cantConnect == True or mprls_tank_2.cantConnect == True) and mprls_tank_1.cantConnect == True: # Not enough pressure information to equalize the tanks
         mprint.pform("Can't connect to two or more of the MPRLS, so we will not attempt to equalize the tanks. Connections - MPRLS3: " + str(not mprls_tank_3.cantConnect) + " MPRLS2: " + str(not mprls_tank_2.cantConnect) + " MPRLS1: " + str(not mprls_tank_1.cantConnect), rtc.getTPlusMS(), output_log)
