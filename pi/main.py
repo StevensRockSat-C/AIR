@@ -22,6 +22,7 @@ This STILL NEEDS TO DO:
 
 # Communications
 from RPi import GPIO
+from statistics import median
 
 class Collection:
     """
@@ -163,11 +164,10 @@ class Tank:
 
 
 class WrapMPRLS:
-
     """
-        Wrap the MPRLS library to prevent misreads
-        
-        multiplexerLine: The multiplexed i2c line. If not specified, this object will become dormant
+    Wrap the MPRLS library to prevent misreads.
+    
+    multiplexerLine: The multiplexed i2c line. If not specified, this object will become dormant
     """
     
     def __init__(self, multiplexerLine=False):
@@ -187,6 +187,15 @@ class WrapMPRLS:
         if self.cantConnect: return -1
         return self.mprls.pressure
 
+    def _get_triple_pressure(self):
+        if self.cantConnect: return -1
+        pressures = []
+        for e in range(3):
+            pressures.append(self.mprls.pressure)
+            if e < 2: time.sleep(0.005) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
+            
+        return median(pressures)
+    
     def _set_pressure(self, value):
         pass
 
@@ -201,6 +210,17 @@ class WrapMPRLS:
         fset=_set_pressure,
         fdel=_del_pressure,
         doc="The pressure of the MPRLS or -1 if we can't connect to it"
+    )
+    
+    """
+        Adds ~10 ms of delay!
+        Acts as a wrapper for the pressure property of the standard MPRLS.
+    """
+    triple_pressure = property(
+        fget=_get_triple_pressure,
+        fset=_set_pressure,
+        fdel=_del_pressure,
+        doc="The 3-sample median pressure of the MPRLS or -1 if we can't connect to it"
     )
 
 
@@ -352,6 +372,25 @@ def logPressures():
             Tank 3 Pressure (hpa)
     """
     pressures = PressuresOBJ(timeMS(), rtc.getTPlusMS(), mprls_canister.pressure, mprls_bleed.pressure, mprls_tank_1.pressure, mprls_tank_2.pressure, mprls_tank_3.pressure)
+    mprint.p(str(pressures.time_MS) + "," + str(pressures.TPlus_MS) + "," + str(pressures.canister_pressure) + "," + str(pressures.bleed_pressure) + "," + str(pressures.tank_1_pressure) + "," + str(pressures.tank_2_pressure) + "," + str(pressures.tank_3_pressure), output_pressures)
+    return pressures
+
+
+def logPressuresTriple():
+    """
+    Get the pressures from every MPRLS and logs them to the CSV output.
+    Adds about 50 ms
+    
+    Returns a Pressure object with the pressure and time info:
+            System Time (ms),
+            T+ (ms),
+            Canister Pressure (hpa),
+            Bleed Pressure (hpa),
+            Tank 1 Pressure (hpa),
+            Tank 2 Pressure (hpa),
+            Tank 3 Pressure (hpa)
+    """
+    pressures = PressuresOBJ(timeMS(), rtc.getTPlusMS(), mprls_canister.triple_pressure, mprls_bleed.triple_pressure, mprls_tank_1.triple_pressure, mprls_tank_2.triple_pressure, mprls_tank_3.triple_pressure)
     mprint.p(str(pressures.time_MS) + "," + str(pressures.TPlus_MS) + "," + str(pressures.canister_pressure) + "," + str(pressures.bleed_pressure) + "," + str(pressures.tank_1_pressure) + "," + str(pressures.tank_2_pressure) + "," + str(pressures.tank_3_pressure), output_pressures)
     return pressures
 
@@ -527,7 +566,7 @@ def equalizeTanks():
     """
     mprint.pform("Checking the pressures in the tanks for equalization...", rtc.getTPlusMS(), output_log)
     
-    pressures = logPressures()
+    pressures = logPressuresTriple()
     
     if (mprls_tank_3.cantConnect == True or mprls_tank_2.cantConnect == True) and mprls_tank_1.cantConnect == True: # Not enough pressure information to equalize the tanks
         mprint.pform("Can't connect to two or more of the MPRLS, so we will not attempt to equalize the tanks. Connections - MPRLS3: " + str(not mprls_tank_3.cantConnect) + " MPRLS2: " + str(not mprls_tank_2.cantConnect) + " MPRLS1: " + str(not mprls_tank_1.cantConnect), rtc.getTPlusMS(), output_log)
@@ -696,7 +735,7 @@ if not all_good:
             if collection.tank.dead:
                 mprint.pform("Testing Tank " + collection.tank.valve.name, rtc.getTPlusMS(), output_log)
                 
-                start_canister_pressure = logPressures().canister_pressure
+                start_canister_pressure = mprls_canister.triple_pressure
                 mprint.pform("Starting canister pressure - " + str(start_canister_pressure) + " hPa", rtc.getTPlusMS(), output_log)
                 
                 valve_main.open()
@@ -711,7 +750,7 @@ if not all_good:
                 collection.tank.valve.close()
                 mprint.pform("VALVE_MAIN and VALVE_" + collection.tank.valve.name + " pulled LOW", rtc.getTPlusMS(), output_log)
                 
-                end_canister_pressure = logPressures().canister_pressure
+                end_canister_pressure = mprls_canister.triple_pressure
                 mprint.pform("Ending canister pressure - " + str(end_canister_pressure) + " hPa", rtc.getTPlusMS(), output_log)
                 # TODO: Can we get a real number for this? I'm just using 3 hPa based on the known STD of the sensors
                 if start_canister_pressure - end_canister_pressure < 3: # We just leaked 3 hPa from the WHOLE FUCKING ROCKET in 1 second
