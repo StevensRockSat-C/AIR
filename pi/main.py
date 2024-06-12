@@ -72,7 +72,7 @@ class Collection:
         self.sampled_count = 0      # The number of times we've tried to sample
 
 # ---- SETTINGS ----
-VERSION = "1.5.0"
+VERSION = "2.0.0"
 
 DEFAULT_BOOT_TIME = 35000   # The estimated time to boot and run the beginnings of the script, in MS. Will be used only if RTC is not live
 
