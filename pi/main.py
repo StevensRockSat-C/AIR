@@ -71,7 +71,7 @@ class Collection:
         self.sampled_count = 0      # The number of times we've tried to sample
 
 # ---- SETTINGS ----
-VERSION = "1.3.0"
+VERSION = "1.5.0"
 
 DEFAULT_BOOT_TIME = 35000   # The estimated time to boot and run the beginnings of the script, in MS. Will be used only if RTC is not live
 
@@ -244,8 +244,6 @@ mprint.w("Time (ms),T+ (ms),Pressure Canister (hPa),Pressure Bleed (hPa),Pressur
 from adafruit_extended_bus import ExtendedI2C as I2C
 import adafruit_tca9548a
 import adafruit_mprls
-from daqHatWrapper import WrapDAQHAT
-import threading # Threading the vibration data
 from RTC import RTC  # Our home-built Realtime Clock lib
 
 # Init GPIO
@@ -339,18 +337,6 @@ else:   # Bruh. No RTC on the line. Guess that's it.
     mprint.p("NO RTC!! Going to assume it's 35 seconds past T-60", output_log)
     mprint.pform("T0: " + str(TIME_LAUNCH_MS) + " ms", rtc.getTPlusMS(), output_log)
 
-
-# Initialize the daqHat and begin collecting data
-daqhat = WrapDAQHAT(mprint, output_log)
-def collectVibrationData():
-    threading.Timer(0.1, collectVibrationData).start() # Re-call the thread #shouldn't this be AFTER you read from the buffer?
-    overrun = daqhat.read_buffer_write_file(rtc.getTPlusMS())
-    if overrun: mprint.pform("Overrun on buffer!", rtc.getTPlusMS(), output_log)
-
-# Start the data collection in a separate thread
-vibration_collection_thread = threading.Thread(target=collectVibrationData)
-vibration_collection_thread.daemon = True  # Set the thread as a daemon so it automatically stops when the main thread exits
-vibration_collection_thread.start()
 
 def logPressures():
     """
@@ -832,7 +818,7 @@ os.system("fake-hwclock save")
 mprint.pform("Done saving current time.", rtc.getTPlusMS(), output_log)
 
 # Close the output files
-mprint.pform("Sleeping...", rtc.getTPlusMS(), output_log)
+mprint.pform("A mimir...", rtc.getTPlusMS(), output_log)
 output_log.close()
 output_pressures.close()
 
