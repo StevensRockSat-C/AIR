@@ -16,27 +16,27 @@ class RTC(ABC):
     """
     
     @abstractmethod
-    def is_ready(self) -> bool:
+    def isReady(self) -> bool:
         pass
     
     @abstractmethod
-    def get_t0(self) -> int:
+    def getT0(self) -> int:
         pass
     
     @abstractmethod
-    def get_t0_ms(self) -> int:
+    def getT0MS(self) -> int:
         pass
     
     @abstractmethod
-    def get_t_plus(self) -> int:
+    def getTPlus(self) -> int:
         pass
     
     @abstractmethod
-    def get_t_plus_ms(self) -> int:
+    def getTPlusMS(self) -> int:
         pass
     
     @abstractmethod
-    def set_ref(self, ref: int) -> int:
+    def setRef(self, ref: int) -> int:
         pass
 
 class RTCWrappedSensor(RTC):
@@ -55,7 +55,7 @@ class RTCWrappedSensor(RTC):
         except:
             print("No RTC is on the i2c line?!")
             
-    def setRef(self, ref):
+    def setEstT0(self, ref):
         """
         Set the estimated T0 time if the RTC can't be found.
         
@@ -126,22 +126,22 @@ class RTCFile(RTC):
         self.t_minus_60 = self.t0 - 60000
         self.ready = True
     
-    def is_ready(self) -> bool:
+    def isReady(self) -> bool:
         return self.ready
     
-    def get_t0(self) -> int:
+    def getT0(self) -> int:
         return round(self.t0 / 1000)
     
-    def get_t0_ms(self) -> int:
+    def getT0MS(self) -> int:
         return self.t0
     
-    def get_t_plus(self) -> int:
+    def getTPlus(self) -> int:
         return round(time.time() - round(self.t0 / 1000))
     
-    def get_t_plus_ms(self) -> int:
+    def getTPlusMS(self) -> int:
         return round(time.time() * 1000) - self.t0
     
-    def set_ref(self, ref: int) -> int:
+    def setEstT0(self, ref: int) -> int:
         prior_t0 = self.t0
         self.t0 = ref
         self.t_minus_60 = self.t0 - 60000
