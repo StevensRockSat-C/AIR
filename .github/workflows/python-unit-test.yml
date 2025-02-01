@@ -1,0 +1,32 @@
+name: Python Unit Tests
+
+on:
+  push:
+    branches:
+      - main
+      - skeleton
+  pull_request:
+    branches:
+      - main
+      - skeleton
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Upgrade pip and install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest adafruit-circuitpython-ds3231
+
+    - name: Run tests with pytest (verbose)
+      run: pytest -v
