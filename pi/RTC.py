@@ -21,15 +21,19 @@ class RTC:
         except:
             print("No RTC is on the i2c line?!")
             
-    def setRef(self, ref):
+    def setRef(self, ref: int) -> int:
         """
         Set the estimated T0 time if the RTC can't be found.
         
-        ref:    Estimated T0 in MS
+        Parameters
+        ----------
+        ref : int
+            Estimated T0 in MS.
         
         Returns
         -------
-        Difference of new and old t0
+        int
+            Difference of new and old t0.
         """
         prior_t0 = self.t0
         self.ref = ref
@@ -37,45 +41,67 @@ class RTC:
         self.tMinus60 = self.t0 - 60000
         return self.t0 - prior_t0
             
-    def isReady(self):
+    def isReady(self) -> bool:
         """Query whether the sensor is ready."""
         return self.ready
         
-    def getT0(self):
+    def getT0(self) -> int:
         """
-        Retrieve the internal time of t0 in seconds.
+        Retrieve the internal time of t0 in `seconds`.
         
-        AKA, what the DEVICE's date and time was at t0
+        AKA, what the DEVICE's date and time was at t0.
+
+        Returns
+        -------
+        int
+            Device's time at t0.
+
         """
         if not self.ready:
             return round(self.ref / 1000)
         return round(self.t0 / 1000)
         
-    def getT0MS(self):
+    def getT0MS(self) -> int:
         """
-        Retrieve the internal time of t0 in ms.
+        Retrieve the internal time of t0 in `milliseconds`.
         
-        AKA, what the DEVICE's date and time was at t0
+        AKA, what the DEVICE's date and time was at t0.
+
+        Returns
+        -------
+        int
+            Device's time at t0.
+
         """
         if not self.ready:
             return self.ref
         return self.t0
 
-    def getTPlus(self):
+    def getTPlus(self) -> int:
         """
-        Get the time since launch in seconds.
-        
-        Returns approximate time if not ready
+        Get the time since launch in `seconds`.
+
+        Returns
+        -------
+        int
+            Time since launch.
+            Approximate time if not ready, based on average boot time
+
         """
         if not self.ready:
             return round(time.time() - round(self.ref / 1000))
         return round(time.time() - round(self.t0 / 1000))
 
-    def getTPlusMS(self):
+    def getTPlusMS(self) -> int:
         """
-        Get the time since launch in milliseconds.
-        
-        Returns approximate time if not ready
+        Get the time since launch in `milliseconds`.
+
+        Returns
+        -------
+        int
+            Time since launch.
+            Approximate time if not ready, based on average boot time
+
         """
         if not self.ready:
             return round(time.time()*1000) - self.ref

@@ -1,5 +1,7 @@
 """
-This is the script for the Main Raspberry Pi, written by Anthony Ford.
+The script for the Main Raspberry Pi, originally written by Anthony Ford.
+
+2024 written with Nerissa lunquist, and Adib Khondler.
 
 This does the following:
     Uses MultiPrint for filewriting
@@ -14,10 +16,10 @@ This does the following:
         A protocol for if pressures are not right
             or if otherwise bad things happening
     Adjust procedures if an MRPLS cannot connect
+    Prevents bleeding if proper conditions cannot be validated
 
 This STILL NEEDS TO DO:
     CONTINUALLY log vibration data
-    Prevent bleeding if proper conditions cannot be validated
 """
 
 # Communications
@@ -72,7 +74,7 @@ class Collection:
         self.sampled_count = 0      # The number of times we've tried to sample
 
 # ---- SETTINGS ----
-VERSION = "2.0.0"
+VERSION = "2.0.1"
 
 DEFAULT_BOOT_TIME = 35000   # The estimated time to boot and run the beginnings of the script, in MS. Will be used only if RTC is not live
 
@@ -122,23 +124,34 @@ collections = [collection_1, collection_2, collection_3]
 
 
 class Valve:
-    """
-    Everything related to a valve.
+    """Everything related to a valve."""
     
-    pin: The BCM pin of the valve
-    """
-    
-    def __init__(self, pin, name):
+    def __init__(self, pin: int, name: str):
+        """
+        Everything related to a valve.
+        
+        Parameters
+        ----------
+        pin : int
+            The BCM pin of the valve.
+        name : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
         self.pin = pin
         self.name = name
         GPIO.setup(self.pin, GPIO.OUT) # Set the pin to the output
         
-    def open(self):
+    def open(self) -> None:
         """Pull the valve pin HIGH."""
         GPIO.output(self.pin, GPIO.HIGH)
         
     
-    def close(self):
+    def close(self) -> None:
         """Pull the valve pin LOW."""
         GPIO.output(self.pin, GPIO.LOW)
 
@@ -150,16 +163,32 @@ class Tank:
     collection: The sample collection object
     """
     
-    def __init__(self, valve):
+    def __init__(self, valve: Valve):
         self.valve = valve
         self.mprls = WrapMPRLS()
         self.sampled = False
         self.dead = False   # Set to True if we believe this tank can't hold a sample, i.e. the pressure in the tank is 100 kPa
         
-    def open(self):
+    def open(self) -> None:
+        """
+        Open the valve associated with the tank.
+
+        Returns
+        -------
+        None.
+
+        """
         self.valve.open()
         
-    def close(self):
+    def close(self) -> None:
+        """
+        Close the valve associated with the tank.
+
+        Returns
+        -------
+        None.
+
+        """
         self.valve.close()
 
 
@@ -170,7 +199,7 @@ class WrapMPRLS:
     multiplexerLine: The multiplexed i2c line. If not specified, this object will become dormant
     """
     
-    def __init__(self, multiplexerLine=False):
+    def __init__(self, multiplexerLine = None):
         self.cantConnect = False
         self.mprls = False
         
@@ -183,15 +212,31 @@ class WrapMPRLS:
         except:
             self.cantConnect = True
         
-    def _get_pressure(self):
-        if self.cantConnect: return -1
-        return self.mprls.pressure
+    def _get_pressure(self) -> float:
+        """
+        Error-safe pressure from the MPRLS.
 
-    def _get_triple_pressure(self):
+        Returns
+        -------
+        float
+            pressure, in hPa.
+            -1 if the MPRLS cannot be connected to.
+
+        """
+        if self.cantConnect: return -1
+        try:
+            return self.mprls.pressure
+        except Exception:
+            return -1
+
+    def _get_triple_pressure(self) -> float:
         if self.cantConnect: return -1
         pressures = []
         for e in range(3):
-            pressures.append(self.mprls.pressure)
+            try:
+                pressures.append(self.mprls.pressure)
+            except Exception:
+                pass
             if e < 2: time.sleep(0.005) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
             
         return median(pressures)
@@ -227,8 +272,10 @@ class WrapMPRLS:
 class PressuresOBJ:
     """Gather pressure information nicely."""
     
-    def __init__(self, time_MS, TPlus_MS,
-                 canister_pressure, bleed_pressure, tank_1_pressure, tank_2_pressure, tank_3_pressure):
+    def __init__(self, time_MS: int, TPlus_MS: int,
+                 canister_pressure: float, bleed_pressure: float,
+                 tank_1_pressure: float, tank_2_pressure: float,
+                 tank_3_pressure: float):
         self.time_MS = time_MS
         self.TPlus_MS = TPlus_MS
         self.canister_pressure = canister_pressure
@@ -240,7 +287,7 @@ class PressuresOBJ:
 
 import time
 
-def timeMS():
+def timeMS() -> int:
     """Get system time to MS."""
     return round(time.time()*1000)
 
@@ -295,7 +342,7 @@ multiplex = False
 try:
     multiplex = adafruit_tca9548a.TCA9548A(i2c)
     mprint.p("Multiplexer connected. Time: " + str(timeMS()) + " ms", output_log)
-except:
+except Exception:
     mprint.p("COULD NOT CONNECT TO MULTIPLEXER!! Time: " + str(timeMS()) + " ms", output_log)
 
 # Create blank objects
@@ -358,37 +405,47 @@ else:   # Bruh. No RTC on the line. Guess that's it.
     mprint.pform("T0: " + str(TIME_LAUNCH_MS) + " ms", rtc.getTPlusMS(), output_log)
 
 
-def logPressures():
+def logPressures() -> PressuresOBJ:
     """
     Get the pressures from every MPRLS and logs them to the CSV output.
     
-    Returns a Pressure object with the pressure and time info:
+    Returns
+    -------
+    PressuresOBJ
+        A pressure object with the pressure and time info.
             System Time (ms),
             T+ (ms),
             Canister Pressure (hpa),
             Bleed Pressure (hpa),
             Tank 1 Pressure (hpa),
             Tank 2 Pressure (hpa),
-            Tank 3 Pressure (hpa)
+            Tank 3 Pressure (hpa).
     """
     pressures = PressuresOBJ(timeMS(), rtc.getTPlusMS(), mprls_canister.pressure, mprls_bleed.pressure, mprls_tank_1.pressure, mprls_tank_2.pressure, mprls_tank_3.pressure)
     mprint.p(str(pressures.time_MS) + "," + str(pressures.TPlus_MS) + "," + str(pressures.canister_pressure) + "," + str(pressures.bleed_pressure) + "," + str(pressures.tank_1_pressure) + "," + str(pressures.tank_2_pressure) + "," + str(pressures.tank_3_pressure), output_pressures)
     return pressures
 
 
-def logPressuresTriple():
+def logPressuresTriple() -> PressuresOBJ:
     """
     Get the pressures from every MPRLS and logs them to the CSV output.
-    Adds about 50 ms
     
-    Returns a Pressure object with the pressure and time info:
+    Uses the triple sample & median method for robust pressure collection.
+    Recommended for use on mission-critical decisions.
+    Adds about 50 ms of delay.
+
+    Returns
+    -------
+    PressuresOBJ
+        A pressure object with the pressure and time info.
             System Time (ms),
             T+ (ms),
             Canister Pressure (hpa),
             Bleed Pressure (hpa),
             Tank 1 Pressure (hpa),
             Tank 2 Pressure (hpa),
-            Tank 3 Pressure (hpa)
+            Tank 3 Pressure (hpa).
+
     """
     pressures = PressuresOBJ(timeMS(), rtc.getTPlusMS(), mprls_canister.triple_pressure, mprls_bleed.triple_pressure, mprls_tank_1.triple_pressure, mprls_tank_2.triple_pressure, mprls_tank_3.triple_pressure)
     mprint.p(str(pressures.time_MS) + "," + str(pressures.TPlus_MS) + "," + str(pressures.canister_pressure) + "," + str(pressures.bleed_pressure) + "," + str(pressures.tank_1_pressure) + "," + str(pressures.tank_2_pressure) + "," + str(pressures.tank_3_pressure), output_pressures)
@@ -397,7 +454,7 @@ def logPressuresTriple():
 # Get our first pressure readings
 logPressures()
 
-def gswitch_callback(channel):
+def gswitch_callback(channel: int):
     """
     Handle the G-Switch input. This sets our reference T+0.
 
@@ -442,6 +499,16 @@ collection_3.mprls = mprls_tank_3
 
 # FUN BITS HERE
 def initialPressureCheck():
+    """
+    Evalute the tanks and their potential to be sampled.
+    
+    Sets the `tank.dead` flag if they are likely not sampleable.
+
+    Returns
+    -------
+    None.
+
+    """
     tanks = [tank_1, tank_2, tank_3, tank_bleed]
     mprint.pform("Performing Initial Pressure Check.", rtc.getTPlusMS(), output_log)
     
@@ -457,7 +524,7 @@ def initialPressureCheck():
 
 initialPressureCheck()
 
-def swapTanks():
+def swapTanks() -> bool:
     """
     Asseses the pressures of the tanks and swaps tanks between collections, if possible.
 
@@ -467,7 +534,8 @@ def swapTanks():
 
     Returns
     -------
-    None.
+    bool
+        The success of swapping tanks.
 
     """
     mprint.pform("Checking the pressures in the tanks for swaps...", rtc.getTPlusMS(), output_log)
@@ -507,7 +575,7 @@ def swapTanks():
     if not collection_2.tank.dead:
         if collection_3.mprls.pressure >= collection_3.up_driving_pressure:
             if collection_1.mprls.pressure >= collection_3.up_driving_pressure:
-                if not (collection_2.mprls.pressure >= collection_3.up_driving_pressure):
+                if not collection_2.mprls.pressure >= collection_3.up_driving_pressure:
                     mprint.pform("SWAPPING TANK 2 FOR TANK 3. This is because T2's pressure satisfies C3, while neither T1 or T3 do.", rtc.getTPlusMS(), output_log)
                     collection_2.tank = tank_3
                     collection_2.mprls = mprls_tank_3
@@ -557,12 +625,18 @@ def swapTanks():
 swapTanks()
 mprint.pform("swapTanks complete.", rtc.getTPlusMS(), output_log)
 
-def equalizeTanks():
+def equalizeTanks() -> bool:
     """
     Asseses the pressures of the tanks and equalize the pressures.
     
     If necessary, connections between 2 tanks will be opened to equalize
     a larger pressure with a smaller pressure tank.
+    
+    Returns
+    -------
+    bool
+        Whether there were enough MPRLS active to make an equalization attempt.
+
     """
     mprint.pform("Checking the pressures in the tanks for equalization...", rtc.getTPlusMS(), output_log)
     

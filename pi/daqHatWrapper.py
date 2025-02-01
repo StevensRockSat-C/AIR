@@ -1,18 +1,26 @@
+from time import time
+from io import TextIOWrapper
+
 from daqhats import mcc128, OptionFlags, HatIDs, AnalogInputMode, \
     AnalogInputRange
 from daqhats_utils import select_hat_device, chan_list_to_mask
-from time import sleep, time
+from multiprint import MultiPrinter
 
-
-def timeMS():
+def timeMS() -> int:
     """Get system time to milliseconds."""
     return time() * 1000
-       
+
 class WrapDAQHAT:
     """Wrap the DAQHAT library for ease of use."""
-    
+
     #hat-id for 128 is 326, according to the library reference
-    def __init__(self, mprint, mainLogFile, chanList=[0,1,2,4,5,6], debug=False, hat_id=326, sampleRate=6400): #open port/channel
+    def __init__(self, 
+                 mprint: MultiPrinter,
+                 mainLogFile: TextIOWrapper,
+                 chanList: list[int] = [0,1,2,4,5,6],
+                 debug: bool = False,
+                 hat_id: int = 326,
+                 sampleRate: int = 6400): #open port/channel
         self.hat_id = hat_id
         self.sampleRate = sampleRate #with 6400 samples, can do 10 kS
         self.samples_per_channel = 0
@@ -28,13 +36,13 @@ class WrapDAQHAT:
         
         self.__connect_to_MCC()
 
-    def __connect_to_MCC(self):
+    def __connect_to_MCC(self) -> bool:
         """
         Attempt to connect to the MCC. Try-except protected.
 
         Returns
         -------
-        Boolean
+        bool
             Whether we are connected to the MCC128.
 
         """
@@ -47,7 +55,7 @@ class WrapDAQHAT:
             self.hat.a_in_range_write(AnalogInputRange.BIP_5V)
             self.hat.a_in_scan_start(self.channelList, self.samples_per_channel, self.sampleRate, OptionFlags.CONTINUOUS)
             self.connected = True
-        except:
+        except Exception:
             self.connected = False
             self.mprint.p("FAILED TO CONNECT TO MCC128!! Time: " + str(timeMS()) + " ms", self.mainLogFile)
         return self.connected
@@ -67,18 +75,24 @@ class WrapDAQHAT:
         self.hat.a_in_scan_cleanup() #cleaning up
 
 
-    def __write_data_to_csv(self, data, endTime):
+    def __write_data_to_csv(self, data: list, endTime: int):
         """
         Write buffer data to the csv file.
         
-        Inputs:
-            data: data in 1D list 
-            numChannels: number of channels daqHat reading from
-            startTime: time started reading data (in microseconds)
-        
-        Output: 
-            saves data to file given with timestamps in leftmost column 
-            using multiprint
+        Saves data to file given with timestamps in leftmost column 
+        using multiprint.
+
+        Parameters
+        ----------
+        data : list
+            DAQHAT data in 1D list.
+        endTime : int
+            Time started reading data (in microseconds).
+
+        Returns
+        -------
+        None.
+
         """
         data_csv = ''
         for row in range(len(data)/self.numChannels):
@@ -89,7 +103,7 @@ class WrapDAQHAT:
         data_csv = data_csv.removesuffix("\n") # Remove trailing newline
         self.mprint.p(data_csv, self.outputLog)
 
-    def read_buffer_write_file(self, endTime=timeMS()):
+    def read_buffer_write_file(self, endTime: int = timeMS()) -> bool:
         """
         Get the current buffer and write it to the file.
 
@@ -100,7 +114,8 @@ class WrapDAQHAT:
 
         Returns
         -------
-        Whether the buffer has overrun, or False if MCC isn't connected.
+        bool
+            Whether the buffer has overrun, or False if MCC isn't connected.
         """
         read_request_size = -1      #read all available in buffer
         timeout = 0     # Use 0 timeout to immediately read the buffer's contents, instead of waiting for it to fill.
@@ -114,9 +129,9 @@ class WrapDAQHAT:
             self.__write_data_to_csv(buffer_data.data, endTime)
             
             if (buffer_data.hardware_overrun | buffer_data.buffer_overrun):
-                        self.overrun = True
+                self.overrun = True
             return self.overrun
-        except:
+        except Exception:
             self.mprint.p("WAS CONNECTED TO MCC128 BUT CAN'T GET DATA!! Time: " + str(timeMS()) + " ms")
             self.connected = False
             return False
