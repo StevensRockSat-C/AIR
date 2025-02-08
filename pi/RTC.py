@@ -3,9 +3,42 @@ An implementation of the DS3231 RTC for T+ caculation
 '''
 
 import time
-import adafruit_ds3231
 
-class RTC:
+try:
+    import adafruit_ds3231
+except (ImportError, ModuleNotFoundError) as e:
+    adafruit_ds3231 = None
+
+class RTC(ABC):
+    """
+    Abstract base class for RTC sensors.
+    """
+    
+    @abstractmethod
+    def isReady(self) -> bool:
+        pass
+    
+    @abstractmethod
+    def getT0(self) -> int:
+        pass
+    
+    @abstractmethod
+    def getT0MS(self) -> int:
+        pass
+    
+    @abstractmethod
+    def getTPlus(self) -> int:
+        pass
+    
+    @abstractmethod
+    def getTPlusMS(self) -> int:
+        pass
+    
+    @abstractmethod
+    def setRef(self, ref: int) -> int:
+        pass
+
+class RTCWrappedSensor(RTC):
     
     def __init__(self, i2c):
         self.ready = False
@@ -80,3 +113,35 @@ class RTC:
         if not self.ready:
             return round(time.time()*1000) - self.ref
         return round(time.time()*1000) - self.t0
+    
+class RTCFile(RTC):
+    """
+    Simulates an RTC for testing purposes.
+    """
+    
+    def __init__(self, start_time_ms: int):
+        self.ref = start_time_ms
+        self.t0 = start_time_ms
+        self.t_minus_60 = self.t0 - 60000
+        self.ready = True
+    
+    def isReady(self) -> bool:
+        return self.ready
+    
+    def getT0(self) -> int:
+        return round(self.t0 / 1000)
+    
+    def getT0MS(self) -> int:
+        return self.t0
+    
+    def getTPlus(self) -> int:
+        return round(time.time() - round(self.t0 / 1000))
+    
+    def getTPlusMS(self) -> int:
+        return round(time.time() * 1000) - self.t0
+    
+    def setEstT0(self, ref: int) -> int:
+        prior_t0 = self.t0
+        self.t0 = ref
+        self.t_minus_60 = self.t0 - 60000
+        return self.t0 - prior_t0
