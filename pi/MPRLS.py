@@ -84,6 +84,51 @@ class MPRLSWrappedSensor(MPRLS):
             if i < 2: time.sleep(0.005) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
         return median(pressures) if pressures else -1
 
+class NovaPressureSensor(MPRLS):
+    """
+    Implementation of the NovaSensor NPI-19-I2C pressure sensor (30 psi absolute pressure).
+    """
+    
+    I2C_ADDRESS = 0x28  # Default I2C address
+    P_MIN = 1638        # Digital count at minimum pressure (10% VDD)
+    P_MAX = 14745       # Digital count at maximum pressure (90% VDD)
+    PSI_MIN = 0         # Absolute pressure sensor, minimum at vacuum
+    PSI_MAX = 30        # Maximum rated pressure for the 30 psi version
+    PSI_TO_HPA = 68.9476# Conversion factor
+    
+    def __init__(self, channel):
+        self.channel = channel
+        self.ready = False
+        time.sleep(0.01)  # Allow sensor initialization
+        self.ready = True
+    
+    def _read_pressure_raw(self):
+        try:
+            data = self.channel.readfrom(self.I2C_ADDRESS, 2)
+            raw_pressure = (data[0] << 8) | data[1]
+            return raw_pressure
+        except Exception:
+            return -1
+    
+    def _convert_pressure(self, raw_pressure):
+        if raw_pressure == -1:
+            return -1
+        pressure_psi = ((raw_pressure - self.P_MIN) * (self.PSI_MAX - self.PSI_MIN) /
+                        (self.P_MAX - self.P_MIN)) + self.PSI_MIN
+        return pressure_psi * self.PSI_TO_HPA  # Convert psi to hPa
+    
+    def _get_pressure(self) -> float:
+        raw_pressure = self._read_pressure_raw()
+        return self._convert_pressure(raw_pressure)
+    
+    def _get_triple_pressure(self) -> float:
+        pressures = []
+        for i in range(3):
+            pressures.append(self._get_pressure())
+            if i < 2: time.sleep(0.005)  # Sampling delay
+        return median([p for p in pressures if p != -1]) if pressures else -1
+
+
 class MPRLSFile(MPRLS):
     """
     Handles virtualized MPRLS sensor playback from a file (for testing).
