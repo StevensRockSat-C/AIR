@@ -3,6 +3,7 @@ An implementation of the DS3231 RTC for T+ caculation
 '''
 
 import time
+from abc import ABC, abstractmethod
 
 try:
     import adafruit_ds3231
@@ -35,7 +36,7 @@ class RTC(ABC):
         pass
     
     @abstractmethod
-    def setRef(self, ref: int) -> int:
+    def setEstT0(self, ref: int) -> int:
         pass
 
 class RTCWrappedSensor(RTC):
@@ -54,7 +55,7 @@ class RTCWrappedSensor(RTC):
         except:
             print("No RTC is on the i2c line?!")
             
-    def setRef(self, ref):
+    def setEstT0(self, ref):
         """
         Set the estimated T0 time if the RTC can't be found.
         
