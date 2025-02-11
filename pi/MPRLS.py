@@ -83,6 +83,26 @@ class MPRLSWrappedSensor(MPRLS):
                 pass
             if i < 2: time.sleep(0.005) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
         return median(pressures) if pressures else -1
+    
+    def _set_pressure(self, value):
+        pass
+
+    def _del_pressure(self):
+        pass
+    
+    pressure = property(
+        fget=_get_pressure,
+        fset=_set_pressure,
+        fdel=_del_pressure,
+        doc="The pressure of the MPRLS or -1 if it cannot be accessed"
+    )
+    
+    triple_pressure = property(
+        fget=_get_triple_pressure,
+        fset=_set_pressure,
+        fdel=_del_pressure,
+        doc="The 3-sample median pressure of the MPRLS or -1 if it cannot be accessed"
+    )
 
 class NovaPressureSensor(MPRLS):
     """
@@ -126,7 +146,27 @@ class NovaPressureSensor(MPRLS):
         for i in range(3):
             pressures.append(self._get_pressure())
             if i < 2: time.sleep(0.005)  # Sampling delay
-        return median([p for p in pressures if p != -1]) if pressures else -1
+        return median([p for p in pressures if p != -1]) if max(pressures) != -1 else -1
+    
+    def _set_pressure(self, value):
+        pass
+
+    def _del_pressure(self):
+        pass
+    
+    pressure = property(
+        fget=_get_pressure,
+        fset=_set_pressure,
+        fdel=_del_pressure,
+        doc="The pressure of the MPRLS or -1 if it cannot be accessed"
+    )
+    
+    triple_pressure = property(
+        fget=_get_triple_pressure,
+        fset=_set_pressure,
+        fdel=_del_pressure,
+        doc="The 3-sample median pressure of the MPRLS or -1 if it cannot be accessed"
+    )
 
 
 class MPRLSFile(MPRLS):
@@ -161,3 +201,23 @@ class MPRLSFile(MPRLS):
         time.sleep(0.010) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
                           # Simulate 2 sleeps for reading from the actual sensor
         return median(pressures)
+    
+    def _set_pressure(self, value):
+        pass
+
+    def _del_pressure(self):
+        pass
+    
+    pressure = property(
+        fget=_get_pressure,
+        fset=_set_pressure,
+        fdel=_del_pressure,
+        doc="The pressure of the MPRLS or -1 if it cannot be accessed"
+    )
+    
+    triple_pressure = property(
+        fget=_get_triple_pressure,
+        fset=_set_pressure,
+        fdel=_del_pressure,
+        doc="The 3-sample median pressure of the MPRLS or -1 if it cannot be accessed"
+    )
