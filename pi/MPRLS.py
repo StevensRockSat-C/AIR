@@ -124,8 +124,9 @@ class NovaPressureSensor(MPRLS):
     
     def _read_pressure_raw(self):
         try:
-            data = self.channel.readfrom(self.I2C_ADDRESS, 2)
-            raw_pressure = (data[0] << 8) | data[1]
+            incoming_buffer = bytearray(2)
+            self.channel.readfrom_into(self.I2C_ADDRESS, incoming_buffer)
+            raw_pressure = (incoming_buffer[0] << 8) | incoming_buffer[1]
             return raw_pressure
         except Exception:
             return -1
