@@ -119,8 +119,11 @@ class NovaPressureSensor(MPRLS):
     def __init__(self, channel):
         self.channel = channel
         self.ready = False
-        time.sleep(0.01)  # Allow sensor initialization
-        self.ready = True
+        for i in range(3):
+            if (self.is_pressure_valid(self._read_pressure_raw())):
+                self.ready = True
+                break;
+            time.sleep(0.01) # Wait 10 ms to see if i2c works again
     
     def _read_pressure_raw(self):
         try:
@@ -131,22 +134,60 @@ class NovaPressureSensor(MPRLS):
         except Exception:
             return -1
     
-    def _convert_pressure(self, raw_pressure):
+    def _convert_pressure_hpa(self, raw_pressure):
         if raw_pressure == -1:
             return -1
         pressure_psi = ((raw_pressure - self.P_MIN) * (self.PSI_MAX - self.PSI_MIN) /
                         (self.P_MAX - self.P_MIN)) + self.PSI_MIN
         return pressure_psi * self.PSI_TO_HPA  # Convert psi to hPa
     
+    def is_pressure_valid(self, pressure_psi: float) -> bool:
+        """
+        Check if the pressure value is valid.
+
+        Parameters
+        ----------
+        pressure_psi : float
+            Measured pressure as PSI.
+
+        Returns
+        -------
+        bool
+            If the pressure is within the expected bounds of the sensor.
+
+        """
+        return (pressure_psi > self.PSI_MIN and pressure_psi <= self.PSI_MAX)
+    
     def _get_pressure(self) -> float:
+        """
+        Get the pressure in hPa.
+
+        Returns
+        -------
+        float
+            Pressure, in hPa. -1 if there's an error.
+
+        """
         raw_pressure = self._read_pressure_raw()
-        return self._convert_pressure(raw_pressure)
+        hpa = self._convert_pressure_hpa(raw_pressure)
+        
+        if (self.is_pressure_valid(hpa)): return hpa
+        return -1
     
     def _get_triple_pressure(self) -> float:
+        """
+        Sample the pressure three times for a median.
+
+        Returns
+        -------
+        float
+            Median pressure. -1 if all 3 reads failed.
+
+        """
         pressures = []
         for i in range(3):
             pressures.append(self._get_pressure())
-            if i < 2: time.sleep(0.005)  # Sampling delay
+            if i < 2: time.sleep(0.001)  # On the Nova Sensor, we can safely read at 1 kHz. Tested in lab 2/12/25
         return median([p for p in pressures if p != -1]) if max(pressures) != -1 else -1
     
     def _set_pressure(self, value):
