@@ -190,8 +190,12 @@ class MPRLSFile(MPRLS):
     def _get_pressure(self) -> float:
         if not self.data:
             return -1
-        value = self.data[self.index]
-        self.index = (self.index + 1) % len(self.data)
+        try:
+            value = self.data[self.index]
+        except IndexError:
+            return -1
+            print("MPRLSFile get_pressure: reached EOF")
+        self.index = self.index + 1
         return value
     
     def _get_triple_pressure(self) -> float:
