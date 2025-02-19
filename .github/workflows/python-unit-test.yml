@@ -29,4 +29,6 @@ jobs:
         pip install pytest adafruit-circuitpython-ds3231
 
     - name: Run tests with pytest (verbose)
-      run: pytest -v
+      env:
+        PYTHONPATH: .
+      run: pytest -v -r A
