@@ -1,5 +1,7 @@
 import time
-from RTC import RTC, RTCFile
+import sys
+sys.path.append('../')
+from pi.RTC import RTC, RTCFile
 import pytest
   # Import the classes from your module; for example, assume the module is named rtc_module
   # from rtc_module import RTCFile, RTCWrappedSensor

@@ -1,7 +1,13 @@
 import pytest
+import sys
+sys.path.append('../')
+
 import tempfile
 import os
-from MPRLS import MPRLSFile
+from pi.MPRLS import MPRLSFile
+
+# Get file relative to the test file dir
+PRESSURE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pressures.csv")
 
 def test_mprlsfile_initialization():
     with tempfile.NamedTemporaryFile(delete=False) as temp_file:
@@ -24,17 +30,17 @@ def test_mprlsfile_empty_file():
     os.remove(temp_filename)
 
 def test_mprlsfile_get_pressure():
-    sensor = MPRLSFile("pressures.csv")
+    sensor = MPRLSFile(PRESSURE_FILE)
     #assert isinstance(sensor._get_pressure(), float)
-    with open("pressures.csv", "r") as f:
+    with open(PRESSURE_FILE, "r") as f:
         data = [float(line.strip()) for line in f.readlines()]
     for value in data:
         assert sensor._get_pressure() == value
 
 def test_mprlsfile_get_triple_pressure():
-    sensor = MPRLSFile("pressures.csv")
+    sensor = MPRLSFile(PRESSURE_FILE)
     #assert isinstance(sensor._get_triple_pressure(), float)
-    with open("pressures.csv", "r") as f:
+    with open(PRESSURE_FILE, "r") as f:
         data = [float(line.strip()) for line in f.readlines()]
     for i in range(((len(data)-1) % 3) + 1):
         expected_values=[]
