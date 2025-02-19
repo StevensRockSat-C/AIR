@@ -1,11 +1,10 @@
 import time
 import sys
 sys.path.append('../')
-from pi.RTC import RTC, RTCFile
+from pi.RTC import RTCFile, RTCWrappedSensor
 import pytest
-  # Import the classes from your module; for example, assume the module is named rtc_module
-  # from rtc_module import RTCFile, RTCWrappedSensor
-  # --- Dummy DS3231 for simulating a working RTC in RTCWrappedSensor ---
+
+# --- Dummy DS3231 for simulating a working RTC in RTCWrappedSensor ---
 class DummyDS3231:
       def __init__(self, i2c):
           self.i2c = i2c
@@ -14,9 +13,9 @@ class DummyDS3231:
           self.datetime = type("DummyDatetime", (), {"tm_min": 1, "tm_sec": 30})()
 
 
-  # ===========================
-  # Tests for RTCFile (Simulated RTC)
-  # ===========================
+# ===========================
+# Tests for RTCFile (Simulated RTC)
+# ===========================
 def test_rtcfile_is_ready():
       """
       Verify that RTCFile is immediately ready when constructed.
@@ -72,81 +71,107 @@ def test_rtcfile_get_tplus_ms(monkeypatch):
     monkeypatch.setattr(time, "time", lambda: fake_time)
     expected_tplus_ms = round(fake_time * 1000) - start_time
     assert rtc.getTPlusMS() == expected_tplus_ms
+
 # ===========================
 # Tests for RTCWrappedSensor (Hardware-backed RTC)
 # ===========================
-''' commented out as we focus on getting the unit testing to work for files
+
 def test_rtcwrappedsensor_success(monkeypatch):
     """
-    Test the normal operation of RTCWrappedSensor when the DS3231 is available.
-    We monkeypatch time.time to return a fixed value and replace the DS3231 with our DummyDS3231.
-    Calculation reasoning:
-      - fixed_time (in seconds) is 2000.0; so round(time()*1000) returns 2,000,000 ms.
-      - DummyDS3231 returns tm_min=1 and tm_sec=30, so the RTC time offset is (60+30)*1000 = 90,000
-      - tMinus60 is then: 2,000,000 - 90,000 = 1,910,000.
-      - t0 is calculated as: tMinus60 + 60,000 = 1,970,000 ms.
-      - getT0() should therefore return 1,970,000/1000 = 1970 seconds.
+    Successful initialization of RTCWrappedSensor using a dummy DS3231.
     """
-    fixed_time = 2000.0  # seconds
+    # Fix the time so that all time.time() calls return a constant value.
+    fixed_time = 2000.0  # seconds; equivalent to 2,000,000 ms
     monkeypatch.setattr(time, "time", lambda: fixed_time)
-    # Patch the DS3231 class to use DummyDS3231 instead
-    import adafruit_ds3231
-    monkeypatch.setattr(adafruit_ds3231, "DS3231", DummyDS3231)
-    dummy_i2c = object()  # a dummy i2c instance
+    
+    # Create a dummy module-like object with the DS3231 attribute.
+    DummyModule = type("DummyModule", (), {"DS3231": DummyDS3231})
+    
+    # Monkeypatch the adafruit_ds3231 variable in the RTC module.
+    import pi.RTC as rtc_module
+    monkeypatch.setattr(rtc_module, "adafruit_ds3231", DummyModule)
+    
+    # Create a dummy I2C object (could be any object).
+    dummy_i2c = object()
     sensor = RTCWrappedSensor(dummy_i2c)
+    
+    # The dummy DS3231 returns tm_min=1 and tm_sec=30, so the offset is:
+    # offset = (1*60 + 30)*1000 = 90,000 ms.
+    # With fixed_time=2000.0 s, both ref and now are 2,000,000 ms.
+    # Then, t0 = 2000000 - 90,000 ms = 1910000 ms.
+    expected_t0_ms = 1910000
+    expected_t0 = round(expected_t0_ms / 1000)  # 1970 seconds
+    
+    # Verify that the sensor reports readiness and the calculated t0 values.
     assert sensor.isReady() is True
-    # Expected calculations
-    expected_t0_ms = 2000000 - 90000 + 60000  # = 1970000 ms
-    expected_t0 = round(expected_t0_ms / 1000)  # = 1970 seconds
     assert sensor.getT0() == expected_t0
     assert sensor.getT0MS() == expected_t0_ms
-    # Since time is fixed, TPlus should be current_time - t0 in seconds and ms
+    
+    # TPlus is calculated as the difference between current time and t0.
+    # Thus, tPlus = 2,000s - 1,910s = 90s
     expected_tplus = round(fixed_time - expected_t0)
-    expected_tplus_ms = round(fixed_time * 1000) - expected_t0_ms
+    expected_tplus_ms = int(fixed_time * 1000) - expected_t0_ms
     assert sensor.getTPlus() == expected_tplus
     assert sensor.getTPlusMS() == expected_tplus_ms
 
 def test_rtcwrappedsensor_failure(monkeypatch):
     """
-    Simulate a failure in initializing the DS3231 (e.g. no RTC on the I2C bus).
-    We monkeypatch DS3231 to raise an exception. In this failure mode:
-    - The sensor should set ready to False.
-    - getT0 and getT0MS should fall back to using the 'ref' value computed from time.time().
-    - TPlus calculations then use the fallback value.
+    Initialization failure of RTCWrappedSensor (simulate DS3231 failure).
     """
-    # Create a dummy DS3231 constructor that always fails.
-    def failing_ds3231(i2c):
-        raise Exception("RTC not found")
-
-    import adafruit_ds3231
-    monkeypatch.setattr(adafruit_ds3231, "DS3231", failing_ds3231)
-
     fixed_time = 2000.0  # seconds
     monkeypatch.setattr(time, "time", lambda: fixed_time)
-
+    
+    # Define a dummy DS3231 constructor that always raises an exception.
+    def DummyFailingDS3231(i2c):
+        raise Exception("Simulated DS3231 failure")
+    
+    DummyModule = type("DummyModule", (), {"DS3231": DummyFailingDS3231})
+    
+    import pi.RTC as rtc_module
+    monkeypatch.setattr(rtc_module, "adafruit_ds3231", DummyModule)
+    
     dummy_i2c = object()
     sensor = RTCWrappedSensor(dummy_i2c)
-
-    # The failure path should set ready to False
+    
+    # On failure, the sensor should remain not ready.
     assert sensor.isReady() is False
-
-    # In failure mode, ref was set to round(time()*1000) = 2,000,000
-    expected_ref = 2000000
-    expected_t0 = round(expected_ref / 1000)
-    assert sensor.getT0() == expected_t0
-    assert sensor.getT0MS() == expected_ref
-
-    # TPlus in failure mode is calculated based on the fallback ref.
-    expected_tplus = round(fixed_time - expected_t0)
-    expected_tplus_ms = round(fixed_time * 1000) - expected_ref
+    
+    # In the failure branch, ref is set to round(time()*1000), so ref = 2000000 ms.
+    expected_est_t0 = fixed_time
+    expected_est_t0_ms = int(fixed_time * 1000)
+    assert sensor.getT0() == expected_est_t0
+    assert sensor.getT0MS() == expected_est_t0_ms
+    
+    # TPlus calculations use the fallback ref value.
+    expected_tplus = round(fixed_time - expected_est_t0)
+    expected_tplus_ms = int(fixed_time * 1000) - expected_est_t0_ms
     assert sensor.getTPlus() == expected_tplus
     assert sensor.getTPlusMS() == expected_tplus_ms
 
-    # Also test that setEstT0 properly updates the internal state in failure mode.
-    new_ref = 3000000
-    diff = sensor.setEstT0(new_ref)
-    assert diff == new_ref - expected_ref
+def test_rtcwrappedsensor_set_est_t0(monkeypatch):
+    """
+    setEstT0 updates the internal reference time correctly.
+    """
+    fixed_time = 2000.0
+    monkeypatch.setattr(time, "time", lambda: fixed_time)
+    
+    DummyModule = type("DummyModule", (), {"DS3231": DummyDS3231})
+    
+    import pi.RTC as rtc_module
+    monkeypatch.setattr(rtc_module, "adafruit_ds3231", DummyModule)
+    
+    dummy_i2c = object()
+    sensor = rtc_module.RTCWrappedSensor(dummy_i2c)
+    
+    assert sensor.isReady() is True
+    
+    old_t0 = sensor.getT0MS()
+    new_t0 = 3000000  # New reference time in ms.
+    diff = sensor.setEstT0(new_t0)
 
-    # After updating, getT0 should reflect the new 'ref' (even if ready remains False).
-    assert sensor.getT0() == new_ref // 1000
-'''
+    # The returned difference should equal the change in t0.
+    assert diff == new_t0 - old_t0
+    # After setting, getT0 should reflect the new reference (in seconds).
+    assert sensor.getT0() == new_t0 // 1000
+    # And getT0MS should return the new reference directly.
+    assert sensor.getT0MS() == new_t0

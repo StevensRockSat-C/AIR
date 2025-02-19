@@ -42,6 +42,16 @@ class RTC(ABC):
 class RTCWrappedSensor(RTC):
     
     def __init__(self, i2c):
+        """
+        A wrapper for the DS3231 RTC for T0 tracking.
+        TODO: Currently built for launch at T-60. Must be re-written for proper launch!
+
+        Parameters
+        ----------
+        i2c : ExtendedI2C
+            i2c bus.
+
+        """
         self.ready = False
         
         try:
