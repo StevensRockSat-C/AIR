@@ -11,7 +11,7 @@ on:
       - skeleton
 
 jobs:
-  build:
+  pytest:
     runs-on: ubuntu-latest
 
     steps:
