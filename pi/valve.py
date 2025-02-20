@@ -1,4 +1,19 @@
-from RPi import GPIO
+from warnings import warn
+try:
+    import RPi.GPIO as GPIO
+except ImportError:
+    warn("Using mock GPIO for valve!")
+    
+    class MockGPIO:
+        """Mock GPIO for non-Raspberry Pi environments (testing)."""
+        
+        BCM = 11
+        BOARD = 10
+        OUT = 0
+        HIGH = 1
+        LOW = 0
+
+    GPIO = MockGPIO()  # Replace RPi.GPIO with mock
 
 class Valve:
     """Everything related to a valve."""
