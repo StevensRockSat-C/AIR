@@ -24,52 +24,7 @@ This STILL NEEDS TO DO:
 from RPi import GPIO
 from statistics import median
 
-class Collection:
-    """
-    Everything related to a collection timing. All provided times are in ms.
-    
-    Parameters
-    ----------
-    num: The indicie of this collection
-    
-    up_start_time: The T+ that this collection should happen if sampling on the way up
-    down_start_time: The T+ that this collection should happen if sampling on the way up
-    
-    up_duration: The time that the valves should remain open for the upwards collection
-    down_duration: The time that the valves should remain open for downwards collection
-    bleed_duration: How long we should bleed the lines for before collecting this sample
-    
-    up_driving_pressure: The hPa we expect this tank to get on the way up
-    down_driving_pressure: The hPa we expect this tank to get on the way down
-    
-    upwards_bleed: Whether this collection needs to be bled on the way up
-    
-    tank: The tank asociated with this collection period
-    mprls: The MPRLS asociated with this collection period
-    """
-    
-    def __init__(self, num,
-                 up_start_time, down_start_time,
-                 bleed_duration,
-                 up_driving_pressure, down_driving_pressure,
-                 upwards_bleed,
-                 up_duration=100, down_duration=100,
-                 tank = None,
-                 mprls = None):
-        self.num = str(num)
-        self.up_start_time = up_start_time
-        self.down_start_time = down_start_time
-        self.up_duration = up_duration
-        self.down_duration = down_duration
-        self.bleed_duration = bleed_duration
-        self.up_driving_pressure = up_driving_pressure
-        self.down_driving_pressure = down_driving_pressure
-        self.upwards_bleed = upwards_bleed
-        self.tank = tank
-        self.mprls = mprls
-        self.sampled = False
-        self.sample_upwards = True  # Set to False if this tank needs to be sampled on the way down
-        self.sampled_count = 0      # The number of times we've tried to sample
+from collection import Collection
 
 # ---- SETTINGS ----
 VERSION = "2.0.0"
