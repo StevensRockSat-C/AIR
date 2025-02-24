@@ -121,47 +121,8 @@ collections = [collection_1, collection_2, collection_3]
 
 
 
-class Valve:
-    """
-    Everything related to a valve.
-    
-    pin: The BCM pin of the valve
-    """
-    
-    def __init__(self, pin, name):
-        self.pin = pin
-        self.name = name
-        GPIO.setup(self.pin, GPIO.OUT) # Set the pin to the output
-        
-    def open(self):
-        """Pull the valve pin HIGH."""
-        GPIO.output(self.pin, GPIO.HIGH)
-        
-    
-    def close(self):
-        """Pull the valve pin LOW."""
-        GPIO.output(self.pin, GPIO.LOW)
-
-class Tank:
-    """
-    Everything related to a single tank.
-    
-    valve: The Valve object
-    collection: The sample collection object
-    """
-    
-    def __init__(self, valve):
-        self.valve = valve
-        self.mprls = WrapMPRLS()
-        self.sampled = False
-        self.dead = False   # Set to True if we believe this tank can't hold a sample, i.e. the pressure in the tank is 100 kPa
-        
-    def open(self):
-        self.valve.open()
-        
-    def close(self):
-        self.valve.close()
-
+from valve import Valve
+from tank import Tank
 
 class WrapMPRLS:
     """
@@ -422,14 +383,10 @@ GPIO.add_event_detect(GSWITCH_PIN, GPIO.FALLING,
                       callback=gswitch_callback, bouncetime=10)
 
 # Setup our Tank objects
-tank_1 = Tank(valve_1)
-tank_2 = Tank(valve_2)
-tank_3 = Tank(valve_3)
-tank_bleed = Tank(valve_bleed)
-tank_1.mprls = mprls_tank_1
-tank_2.mprls = mprls_tank_2
-tank_3.mprls = mprls_tank_3
-tank_bleed.mprls = mprls_bleed
+tank_1 = Tank(valve_1, mprls_tank_1)
+tank_2 = Tank(valve_2, mprls_tank_2)
+tank_3 = Tank(valve_3, mprls_tank_3)
+tank_bleed = Tank(valve_bleed, mprls_bleed)
 
 # Connect the Tanks and MPRLS to their respective collection periods
 collection_1.tank = tank_1
@@ -850,7 +807,7 @@ valve_bleed.close()
 valve_1.close()
 valve_2.close()
 valve_3.close()
-GPIO.cleanup()
+Valve.cleanup_all()
 mprint.pform("Cleaned up the GPIO", rtc.getTPlusMS(), output_log)
 
 # Save the current time to the system
