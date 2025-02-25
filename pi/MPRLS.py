@@ -221,12 +221,14 @@ class MPRLSFile(MPRLS):
         self.file_path = file_path
         self.data = self._load_data()
         self.index = 0
+        self.cant_connect = False
     
     def _load_data(self):
         try:
             with open(self.file_path, 'r') as f:
                 return [float(line.strip()) for line in f.readlines()]
         except Exception:
+            self.cant_connect = True
             return []
     
     def _get_pressure(self) -> float:
