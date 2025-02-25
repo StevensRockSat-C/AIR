@@ -3,6 +3,7 @@
 from abc import ABC, abstractmethod
 import time
 from statistics import median
+from warnings import warn
 
 try:
     import adafruit_mprls
@@ -59,7 +60,7 @@ class MPRLSWrappedSensor(MPRLS):
             if adafruit_mprls:
                 self.mprls = adafruit_mprls.MPRLS(multiplexer_line, psi_min=0, psi_max=25)
             else:
-                raise ImportError("Adafruit MPRLS library not found")
+                warn("Adafruit MPRLS library not found!")
         except:
             self.cant_connect = True
     
@@ -120,12 +121,20 @@ class NovaPressureSensor(MPRLS):
         self.channel = channel
         self.ready = False
         for i in range(3):
-            if (self.is_pressure_valid(self._read_pressure_raw())):
+            if (self.is_pressure_valid(self._read_pressure_digital())):
                 self.ready = True
-                break;
+                break
             time.sleep(0.01) # Wait 10 ms to see if i2c works again
     
-    def _read_pressure_raw(self):
+    def _read_pressure_digital(self) -> int:
+        """
+        Read the pressure from the sensor in digital counts.
+
+        Returns
+        -------
+        int
+            Pressure in digital counts. -1 if there's an error.
+        """
         try:
             incoming_buffer = bytearray(2)
             self.channel.readfrom_into(self.I2C_ADDRESS, incoming_buffer)
@@ -134,21 +143,32 @@ class NovaPressureSensor(MPRLS):
         except Exception:
             return -1
     
-    def _convert_pressure_hpa(self, raw_pressure):
-        if raw_pressure == -1:
-            return -1
-        pressure_psi = ((raw_pressure - self.P_MIN) * (self.PSI_MAX - self.PSI_MIN) /
+    def _convert_pressure_hpa(self, digital_pressure: int) -> float:
+        """
+        Convert the pressure from digital counts to hPa.
+
+        Parameters
+        ----------
+        digital_pressure : int
+            Pressure in digital counts.
+
+        Returns
+        -------
+        float
+            Pressure in hPa.
+        """
+        pressure_psi = ((digital_pressure - self.P_MIN) * (self.PSI_MAX - self.PSI_MIN) /
                         (self.P_MAX - self.P_MIN)) + self.PSI_MIN
         return pressure_psi * self.PSI_TO_HPA  # Convert psi to hPa
     
-    def is_pressure_valid(self, pressure_psi: float) -> bool:
+    def is_pressure_valid(self, pressure_hpa: float) -> bool:
         """
         Check if the pressure value is valid.
 
         Parameters
         ----------
-        pressure_psi : float
-            Measured pressure as PSI.
+        pressure_hpa : float
+            Measured pressure as hPa.
 
         Returns
         -------
@@ -156,6 +176,7 @@ class NovaPressureSensor(MPRLS):
             If the pressure is within the expected bounds of the sensor.
 
         """
+        pressure_psi = pressure_hpa / self.PSI_TO_HPA
         return (pressure_psi > self.PSI_MIN and pressure_psi <= self.PSI_MAX)
     
     def _get_pressure(self) -> float:
@@ -168,10 +189,10 @@ class NovaPressureSensor(MPRLS):
             Pressure, in hPa. -1 if there's an error.
 
         """
-        raw_pressure = self._read_pressure_raw()
-        hpa = self._convert_pressure_hpa(raw_pressure)
+        digital_pressure = self._read_pressure_digital()    
+        hpa_pressure = self._convert_pressure_hpa(digital_pressure)
         
-        if (self.is_pressure_valid(hpa)): return hpa
+        if (self.is_pressure_valid(hpa_pressure)): return hpa_pressure
         return -1
     
     def _get_triple_pressure(self) -> float:
