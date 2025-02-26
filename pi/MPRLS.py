@@ -75,6 +75,7 @@ class MPRLSWrappedSensor(MPRLS):
                 self.mprls = adafruit_mprls.MPRLS(multiplexer_line, psi_min=0, psi_max=25)
             else:
                 warn("Adafruit MPRLS library not found!")
+                self.cant_connect = True
         except:
             self.cant_connect = True
     

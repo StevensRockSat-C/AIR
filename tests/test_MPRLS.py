@@ -157,6 +157,14 @@ def test_mprlswrappedsensor_partial(monkeypatch):
     # The median of [15.0, 17.0] is (15.0+17.0)/2 = 16.0.
     assert sensor.triple_pressure == 16.0
 
+
+def test_mprlswrappedsensor_no_lib(monkeypatch):
+    """Simulate a sensor that has no library available."""
+
+    dummy_line = object()
+    sensor = MPRLSWrappedSensor(dummy_line)
+    assert sensor.cant_connect == True
+
 # -----------------------------------------
 # Dummy I2C channel for NovaPressureSensor tests
 # -----------------------------------------
