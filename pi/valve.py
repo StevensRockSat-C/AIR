@@ -18,7 +18,7 @@ except ImportError:
 class Valve:
     """Everything related to a valve."""
 
-    _instances = []  # Track all instances for cleanup
+    _instances: list = []  # Track all instances for cleanup
 
     def __init__(self, pin: int, name: str, gpio_mode=GPIO.BCM):
         """
