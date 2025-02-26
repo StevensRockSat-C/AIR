@@ -203,8 +203,7 @@ mprint.w("Time (ms),T+ (ms),Pressure Canister (hPa),Pressure Bleed (hPa),Pressur
 # Sensors
 from adafruit_extended_bus import ExtendedI2C as I2C
 import adafruit_tca9548a
-import adafruit_mprls
-from RTC import RTC  # Our home-built Realtime Clock lib
+from pi.RTC import RTCWrappedSensor  # Our home-built Realtime Clock lib
 
 # Init GPIO
 #   We do this before connecting to i2c devices because we want to make sure our valves are closed!
@@ -276,7 +275,7 @@ else:
     mprint.p("NOT CONNECTING TO THE MPRLS because there's no multiplexer on the line!!. Time: " + str(timeMS()) + " ms", output_log)
 
 # Connect to the RTC
-rtc = RTC(i2c)
+rtc = RTCWrappedSensor(i2c)
 
 # Establish our T0
 time_try_rtc = timeMS()
@@ -292,7 +291,7 @@ if rtc.isReady():
 else:   # Bruh. No RTC on the line. Guess that's it.
 
     TIME_LAUNCH_MS = FIRST_ON_MS - DEFAULT_BOOT_TIME + 60000 # We'll assume 35 seconds in, based on lab testing. Add 60 seconds from 1.SYS.1 Early Activation
-    rtc.setRef(TIME_LAUNCH_MS)
+    rtc.setEstT0(TIME_LAUNCH_MS)
     
     mprint.p("NO RTC!! Going to assume it's 35 seconds past T-60. Time: " + str(timeMS()) + " ms", output_log)
     mprint.pform("T0: " + str(TIME_LAUNCH_MS) + " ms", rtc.getTPlusMS(), output_log)
@@ -353,7 +352,7 @@ def gswitch_callback(channel):
     """
     t0 = timeMS()
     GPIO.remove_event_detect(GSWITCH_PIN)
-    difference = rtc.setRef(t0)
+    difference = rtc.setEstT0(t0)
     mprint.pform("G-Switch input! New t0: " + str(t0) + " ms. Difference from RBF estimation: " + str(difference) + " ms", rtc.getTPlusMS(), output_log)
     
 # Setup the G-Switch listener
