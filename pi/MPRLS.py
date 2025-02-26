@@ -11,16 +11,32 @@ except ImportError:
     adafruit_mprls = None
 
 class MPRLS(ABC):
-    """
-    Abstract base class for MPRLS pressure sensors.
-    """
+    """Abstract base class for MPRLS pressure sensors."""
     
     @abstractmethod
     def _get_pressure(self) -> float:
+        """
+        Get the pressure in hPa.
+
+        Returns
+        -------
+        float
+            Pressure, in hPa. -1 if there's an error.
+
+        """
         pass
     
     @abstractmethod
     def _get_triple_pressure(self) -> float:
+        """
+        Sample the pressure three times for a median.
+
+        Returns
+        -------
+        float
+            Median pressure. -1 if all 3 reads failed.
+
+        """
         pass
     
     def _set_pressure(self, value):
@@ -33,20 +49,18 @@ class MPRLS(ABC):
         fget=_get_pressure,
         fset=_set_pressure,
         fdel=_del_pressure,
-        doc="The pressure of the MPRLS or -1 if it cannot be accessed"
+        doc="The pressure of the Pressure Sensor or -1 if it cannot be accessed"
     )
     
     triple_pressure = property(
         fget=_get_triple_pressure,
         fset=_set_pressure,
         fdel=_del_pressure,
-        doc="The 3-sample median pressure of the MPRLS or -1 if it cannot be accessed"
+        doc="The 3-sample median pressure of the Pressure Sensor or -1 if it cannot be accessed"
     )
 
 class MPRLSWrappedSensor(MPRLS):
-    """
-    Handles real MPRLS hardware by wrapping the base MPRLS to enact soft error handling.
-    """
+    """Handles real MPRLS hardware by wrapping the base MPRLS to enact soft error handling."""
     
     def __init__(self, multiplexer_line=None):
         self.cant_connect = False
@@ -106,9 +120,7 @@ class MPRLSWrappedSensor(MPRLS):
     )
 
 class NovaPressureSensor(MPRLS):
-    """
-    Implementation of the NovaSensor NPI-19-I2C pressure sensor (30 psi absolute pressure).
-    """
+    """Implementation of the NovaSensor NPI-19-I2C pressure sensor (30 psi absolute pressure)."""
     
     I2C_ADDRESS = 0x28  # Default I2C address
     P_MIN = 1638        # Digital count at minimum pressure (10% VDD)
@@ -221,22 +233,19 @@ class NovaPressureSensor(MPRLS):
         fget=_get_pressure,
         fset=_set_pressure,
         fdel=_del_pressure,
-        doc="The pressure of the MPRLS or -1 if it cannot be accessed"
+        doc="The pressure of the Nova Pressure Sensor or -1 if it cannot be accessed"
     )
     
     triple_pressure = property(
         fget=_get_triple_pressure,
         fset=_set_pressure,
         fdel=_del_pressure,
-        doc="The 3-sample median pressure of the MPRLS or -1 if it cannot be accessed"
+        doc="The 3-sample median pressure of the Nova Pressure Sensor or -1 if it cannot be accessed"
     )
 
 
 class MPRLSFile(MPRLS):
-    """
-    Handles virtualized MPRLS sensor playback from a file (for testing).
-
-    """
+    """Handles virtualized MPRLS sensor playback from a file (for testing)."""
     
     def __init__(self, file_path):
         self.file_path = file_path
@@ -279,12 +288,12 @@ class MPRLSFile(MPRLS):
         fget=_get_pressure,
         fset=_set_pressure,
         fdel=_del_pressure,
-        doc="The pressure of the MPRLS or -1 if it cannot be accessed"
+        doc="The pressure from the File or -1 if it cannot be accessed"
     )
     
     triple_pressure = property(
         fget=_get_triple_pressure,
         fset=_set_pressure,
         fdel=_del_pressure,
-        doc="The 3-sample median pressure of the MPRLS or -1 if it cannot be accessed"
+        doc="The 3-sample median pressure from the File or -1 if it cannot be accessed"
     )
