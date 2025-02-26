@@ -10,8 +10,8 @@ try:
 except ImportError:
     adafruit_mprls = None
 
-class MPRLS(ABC):
-    """Abstract base class for MPRLS pressure sensors."""
+class PressureSensor(ABC):
+    """Abstract base class for pressure sensors."""
     
     @abstractmethod
     def _get_pressure(self) -> float:
@@ -59,7 +59,7 @@ class MPRLS(ABC):
         doc="The 3-sample median pressure of the Pressure Sensor or -1 if it cannot be accessed"
     )
 
-class MPRLSWrappedSensor(MPRLS):
+class MPRLSWrappedSensor(PressureSensor):
     """Handles real MPRLS hardware by wrapping the base MPRLS to enact soft error handling."""
     
     def __init__(self, multiplexer_line=None):
@@ -120,7 +120,7 @@ class MPRLSWrappedSensor(MPRLS):
         doc="The 3-sample median pressure of the MPRLS or -1 if it cannot be accessed"
     )
 
-class NovaPressureSensor(MPRLS):
+class NovaPressureSensor(PressureSensor):
     """Implementation of the NovaSensor NPI-19-I2C pressure sensor (30 psi absolute pressure)."""
     
     I2C_ADDRESS = 0x28  # Default I2C address
@@ -245,7 +245,7 @@ class NovaPressureSensor(MPRLS):
     )
 
 
-class MPRLSFile(MPRLS):
+class MPRLSFile(PressureSensor):
     """Handles virtualized MPRLS sensor playback from a file (for testing)."""
     
     def __init__(self, file_path):
