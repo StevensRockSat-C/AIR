@@ -121,26 +121,7 @@ collections = [collection_1, collection_2, collection_3]
 
 
 
-class Valve:
-    """
-    Everything related to a valve.
-    
-    pin: The BCM pin of the valve
-    """
-    
-    def __init__(self, pin, name):
-        self.pin = pin
-        self.name = name
-        GPIO.setup(self.pin, GPIO.OUT) # Set the pin to the output
-        
-    def open(self):
-        """Pull the valve pin HIGH."""
-        GPIO.output(self.pin, GPIO.HIGH)
-        
-    
-    def close(self):
-        """Pull the valve pin LOW."""
-        GPIO.output(self.pin, GPIO.LOW)
+from valve import Valve
 
 class Tank:
     """
@@ -789,7 +770,7 @@ valve_bleed.close()
 valve_1.close()
 valve_2.close()
 valve_3.close()
-GPIO.cleanup()
+Valve.cleanup_all()
 mprint.pform("Cleaned up the GPIO", rtc.getTPlusMS(), output_log)
 
 # Save the current time to the system
