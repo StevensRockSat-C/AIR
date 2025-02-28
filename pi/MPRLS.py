@@ -3,23 +3,40 @@
 from abc import ABC, abstractmethod
 import time
 from statistics import median
+from warnings import warn
 
 try:
     import adafruit_mprls
 except ImportError:
     adafruit_mprls = None
 
-class MPRLS(ABC):
-    """
-    Abstract base class for MPRLS pressure sensors.
-    """
+class PressureSensor(ABC):
+    """Abstract base class for pressure sensors."""
     
     @abstractmethod
     def _get_pressure(self) -> float:
+        """
+        Get the pressure in hPa.
+
+        Returns
+        -------
+        float
+            Pressure, in hPa. -1 if there's an error.
+
+        """
         pass
     
     @abstractmethod
     def _get_triple_pressure(self) -> float:
+        """
+        Sample the pressure three times for a median.
+
+        Returns
+        -------
+        float
+            Median pressure. -1 if all 3 reads failed.
+
+        """
         pass
     
     def _set_pressure(self, value):
@@ -32,20 +49,18 @@ class MPRLS(ABC):
         fget=_get_pressure,
         fset=_set_pressure,
         fdel=_del_pressure,
-        doc="The pressure of the MPRLS or -1 if it cannot be accessed"
+        doc="The pressure of the Pressure Sensor or -1 if it cannot be accessed"
     )
     
     triple_pressure = property(
         fget=_get_triple_pressure,
         fset=_set_pressure,
         fdel=_del_pressure,
-        doc="The 3-sample median pressure of the MPRLS or -1 if it cannot be accessed"
+        doc="The 3-sample median pressure of the Pressure Sensor or -1 if it cannot be accessed"
     )
 
-class MPRLSWrappedSensor(MPRLS):
-    """
-    Handles real MPRLS hardware by wrapping the base MPRLS to enact soft error handling.
-    """
+class MPRLSWrappedSensor(PressureSensor):
+    """Handles real MPRLS hardware by wrapping the base MPRLS to enact soft error handling."""
     
     def __init__(self, multiplexer_line=None):
         self.cant_connect = False
@@ -59,7 +74,8 @@ class MPRLSWrappedSensor(MPRLS):
             if adafruit_mprls:
                 self.mprls = adafruit_mprls.MPRLS(multiplexer_line, psi_min=0, psi_max=25)
             else:
-                raise ImportError("Adafruit MPRLS library not found")
+                warn("Adafruit MPRLS library not found!")
+                self.cant_connect = True
         except:
             self.cant_connect = True
     
@@ -104,10 +120,8 @@ class MPRLSWrappedSensor(MPRLS):
         doc="The 3-sample median pressure of the MPRLS or -1 if it cannot be accessed"
     )
 
-class NovaPressureSensor(MPRLS):
-    """
-    Implementation of the NovaSensor NPI-19-I2C pressure sensor (30 psi absolute pressure).
-    """
+class NovaPressureSensor(PressureSensor):
+    """Implementation of the NovaSensor NPI-19-I2C pressure sensor (30 psi absolute pressure)."""
     
     I2C_ADDRESS = 0x28  # Default I2C address
     P_MIN = 1638        # Digital count at minimum pressure (10% VDD)
@@ -120,12 +134,20 @@ class NovaPressureSensor(MPRLS):
         self.channel = channel
         self.ready = False
         for i in range(3):
-            if (self.is_pressure_valid(self._read_pressure_raw())):
+            if (self.is_pressure_valid(self._read_pressure_digital())):
                 self.ready = True
-                break;
+                break
             time.sleep(0.01) # Wait 10 ms to see if i2c works again
     
-    def _read_pressure_raw(self):
+    def _read_pressure_digital(self) -> int:
+        """
+        Read the pressure from the sensor in digital counts.
+
+        Returns
+        -------
+        int
+            Pressure in digital counts. -1 if there's an error.
+        """
         try:
             incoming_buffer = bytearray(2)
             self.channel.readfrom_into(self.I2C_ADDRESS, incoming_buffer)
@@ -134,21 +156,32 @@ class NovaPressureSensor(MPRLS):
         except Exception:
             return -1
     
-    def _convert_pressure_hpa(self, raw_pressure):
-        if raw_pressure == -1:
-            return -1
-        pressure_psi = ((raw_pressure - self.P_MIN) * (self.PSI_MAX - self.PSI_MIN) /
+    def _convert_pressure_hpa(self, digital_pressure: int) -> float:
+        """
+        Convert the pressure from digital counts to hPa.
+
+        Parameters
+        ----------
+        digital_pressure : int
+            Pressure in digital counts.
+
+        Returns
+        -------
+        float
+            Pressure in hPa.
+        """
+        pressure_psi = ((digital_pressure - self.P_MIN) * (self.PSI_MAX - self.PSI_MIN) /
                         (self.P_MAX - self.P_MIN)) + self.PSI_MIN
         return pressure_psi * self.PSI_TO_HPA  # Convert psi to hPa
     
-    def is_pressure_valid(self, pressure_psi: float) -> bool:
+    def is_pressure_valid(self, pressure_hpa: float) -> bool:
         """
         Check if the pressure value is valid.
 
         Parameters
         ----------
-        pressure_psi : float
-            Measured pressure as PSI.
+        pressure_hpa : float
+            Measured pressure as hPa.
 
         Returns
         -------
@@ -156,6 +189,7 @@ class NovaPressureSensor(MPRLS):
             If the pressure is within the expected bounds of the sensor.
 
         """
+        pressure_psi = pressure_hpa / self.PSI_TO_HPA
         return (pressure_psi > self.PSI_MIN and pressure_psi <= self.PSI_MAX)
     
     def _get_pressure(self) -> float:
@@ -168,10 +202,10 @@ class NovaPressureSensor(MPRLS):
             Pressure, in hPa. -1 if there's an error.
 
         """
-        raw_pressure = self._read_pressure_raw()
-        hpa = self._convert_pressure_hpa(raw_pressure)
+        digital_pressure = self._read_pressure_digital()    
+        hpa_pressure = self._convert_pressure_hpa(digital_pressure)
         
-        if (self.is_pressure_valid(hpa)): return hpa
+        if (self.is_pressure_valid(hpa_pressure)): return hpa_pressure
         return -1
     
     def _get_triple_pressure(self) -> float:
@@ -200,22 +234,19 @@ class NovaPressureSensor(MPRLS):
         fget=_get_pressure,
         fset=_set_pressure,
         fdel=_del_pressure,
-        doc="The pressure of the MPRLS or -1 if it cannot be accessed"
+        doc="The pressure of the Nova Pressure Sensor or -1 if it cannot be accessed"
     )
     
     triple_pressure = property(
         fget=_get_triple_pressure,
         fset=_set_pressure,
         fdel=_del_pressure,
-        doc="The 3-sample median pressure of the MPRLS or -1 if it cannot be accessed"
+        doc="The 3-sample median pressure of the Nova Pressure Sensor or -1 if it cannot be accessed"
     )
 
 
-class MPRLSFile(MPRLS):
-    """
-    Handles virtualized MPRLS sensor playback from a file (for testing).
-
-    """
+class MPRLSFile(PressureSensor):
+    """Handles virtualized MPRLS sensor playback from a file (for testing)."""
     
     def __init__(self, file_path):
         self.file_path = file_path
@@ -258,12 +289,12 @@ class MPRLSFile(MPRLS):
         fget=_get_pressure,
         fset=_set_pressure,
         fdel=_del_pressure,
-        doc="The pressure of the MPRLS or -1 if it cannot be accessed"
+        doc="The pressure from the File or -1 if it cannot be accessed"
     )
     
     triple_pressure = property(
         fget=_get_triple_pressure,
         fset=_set_pressure,
         fdel=_del_pressure,
-        doc="The 3-sample median pressure of the MPRLS or -1 if it cannot be accessed"
+        doc="The 3-sample median pressure from the File or -1 if it cannot be accessed"
     )
