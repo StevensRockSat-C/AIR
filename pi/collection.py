@@ -75,3 +75,12 @@ class Collection:
             The tank for this collection.
         """
         self.tank = tank
+
+    @classmethod
+    def swap_tanks(cls, collection1: 'Collection', collection2: 'Collection'):
+        """Swap the tanks between two collections."""
+        tank1 = collection1.tank
+        tank2 = collection2.tank
+        collection1.tank = tank2
+        collection2.tank = tank1
+

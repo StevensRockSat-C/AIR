@@ -165,3 +165,42 @@ def test_collections_in_array():
     assert collections[2].tank == tank1
     assert collections[0].pressure_sensor.pressure == 300
     assert collections[2].pressure_sensor.pressure == 100
+
+def test_collection_swap_tanks():
+    """Verify handling of collection changes in an array."""
+
+    collection1 = Collection(
+        num=1,
+        up_start_time=40305, down_start_time=290000,
+        bleed_duration=1, 
+        up_driving_pressure=1270.44, down_driving_pressure=998.20,
+        upwards_bleed=False
+    )
+    
+    collection2 = Collection(
+        num=2,
+        up_start_time=70000, down_start_time=255000,
+        bleed_duration=5,
+        up_driving_pressure=753.43, down_driving_pressure=545.52,
+        upwards_bleed=True
+    )
+
+    tank1 = MockTank("Mock Tank 1", pressure=100)
+    tank2 = MockTank("Mock Tank 2", pressure=200)
+    
+    collection1.associate_tank(tank1)
+    collection2.associate_tank(tank2)
+
+    # Create an array of all our collections
+    collections = [collection1, collection2]
+    
+    # Modify the base collections, simulating
+    Collection.swap_tanks(collections[0], collections[1])
+    
+    assert collection1.tank == tank2
+    assert collection2.tank == tank1
+
+    assert collections[0].tank == tank2
+    assert collections[1].tank == tank1
+    assert collections[0].pressure_sensor.pressure == 200
+    assert collections[1].pressure_sensor.pressure == 100
