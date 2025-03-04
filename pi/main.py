@@ -122,27 +122,7 @@ collections = [collection_1, collection_2, collection_3]
 
 
 from valve import Valve
-
-class Tank:
-    """
-    Everything related to a single tank.
-    
-    valve: The Valve object
-    collection: The sample collection object
-    """
-    
-    def __init__(self, valve):
-        self.valve = valve
-        self.mprls = WrapMPRLS()
-        self.sampled = False
-        self.dead = False   # Set to True if we believe this tank can't hold a sample, i.e. the pressure in the tank is 100 kPa
-        
-    def open(self):
-        self.valve.open()
-        
-    def close(self):
-        self.valve.close()
-
+from tank import Tank
 from pi.MPRLS import MPRLSWrappedSensor
 
 class PressuresOBJ:
@@ -342,14 +322,10 @@ GPIO.add_event_detect(GSWITCH_PIN, GPIO.FALLING,
                       callback=gswitch_callback, bouncetime=10)
 
 # Setup our Tank objects
-tank_1 = Tank(valve_1)
-tank_2 = Tank(valve_2)
-tank_3 = Tank(valve_3)
-tank_bleed = Tank(valve_bleed)
-tank_1.mprls = mprls_tank_1
-tank_2.mprls = mprls_tank_2
-tank_3.mprls = mprls_tank_3
-tank_bleed.mprls = mprls_bleed
+tank_1 = Tank(valve_1, mprls_tank_1)
+tank_2 = Tank(valve_2, mprls_tank_2)
+tank_3 = Tank(valve_3, mprls_tank_3)
+tank_bleed = Tank(valve_bleed, mprls_bleed)
 
 # Connect the Tanks and MPRLS to their respective collection periods
 collection_1.tank = tank_1
