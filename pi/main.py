@@ -24,52 +24,7 @@ This STILL NEEDS TO DO:
 from RPi import GPIO
 from statistics import median
 
-class Collection:
-    """
-    Everything related to a collection timing. All provided times are in ms.
-    
-    Parameters
-    ----------
-    num: The indicie of this collection
-    
-    up_start_time: The T+ that this collection should happen if sampling on the way up
-    down_start_time: The T+ that this collection should happen if sampling on the way up
-    
-    up_duration: The time that the valves should remain open for the upwards collection
-    down_duration: The time that the valves should remain open for downwards collection
-    bleed_duration: How long we should bleed the lines for before collecting this sample
-    
-    up_driving_pressure: The hPa we expect this tank to get on the way up
-    down_driving_pressure: The hPa we expect this tank to get on the way down
-    
-    upwards_bleed: Whether this collection needs to be bled on the way up
-    
-    tank: The tank asociated with this collection period
-    mprls: The MPRLS asociated with this collection period
-    """
-    
-    def __init__(self, num,
-                 up_start_time, down_start_time,
-                 bleed_duration,
-                 up_driving_pressure, down_driving_pressure,
-                 upwards_bleed,
-                 up_duration=100, down_duration=100,
-                 tank = None,
-                 mprls = None):
-        self.num = str(num)
-        self.up_start_time = up_start_time
-        self.down_start_time = down_start_time
-        self.up_duration = up_duration
-        self.down_duration = down_duration
-        self.bleed_duration = bleed_duration
-        self.up_driving_pressure = up_driving_pressure
-        self.down_driving_pressure = down_driving_pressure
-        self.upwards_bleed = upwards_bleed
-        self.tank = tank
-        self.mprls = mprls
-        self.sampled = False
-        self.sample_upwards = True  # Set to False if this tank needs to be sampled on the way down
-        self.sampled_count = 0      # The number of times we've tried to sample
+from collection import Collection
 
 # ---- SETTINGS ----
 VERSION = "2.0.0"
@@ -123,67 +78,7 @@ collections = [collection_1, collection_2, collection_3]
 
 from valve import Valve
 from tank import Tank
-
-class WrapMPRLS:
-    """
-    Wrap the MPRLS library to prevent misreads.
-    
-    multiplexerLine: The multiplexed i2c line. If not specified, this object will become dormant
-    """
-    
-    def __init__(self, multiplexerLine=False):
-        self.cantConnect = False
-        self.mprls = False
-        
-        if not multiplexerLine: # No multiplexer defined, therefore this is a blank object
-            self.cantConnect = True
-            return
-        
-        try:
-            self.mprls = adafruit_mprls.MPRLS(multiplexerLine, psi_min=0, psi_max=25)
-        except:
-            self.cantConnect = True
-        
-    def _get_pressure(self):
-        if self.cantConnect: return -1
-        return self.mprls.pressure
-
-    def _get_triple_pressure(self):
-        if self.cantConnect: return -1
-        pressures = []
-        for e in range(3):
-            pressures.append(self.mprls.pressure)
-            if e < 2: time.sleep(0.005) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
-            
-        return median(pressures)
-    
-    def _set_pressure(self, value):
-        pass
-
-    def _del_pressure(self):
-        pass
-        
-    """
-        Acts as a wrapper for the pressure property of the standard MPRLS
-    """
-    pressure = property(
-        fget=_get_pressure,
-        fset=_set_pressure,
-        fdel=_del_pressure,
-        doc="The pressure of the MPRLS or -1 if we can't connect to it"
-    )
-    
-    """
-        Adds ~10 ms of delay!
-        Acts as a wrapper for the pressure property of the standard MPRLS.
-    """
-    triple_pressure = property(
-        fget=_get_triple_pressure,
-        fset=_set_pressure,
-        fdel=_del_pressure,
-        doc="The 3-sample median pressure of the MPRLS or -1 if we can't connect to it"
-    )
-
+from pi.MPRLS import MPRLSWrappedSensor
 
 class PressuresOBJ:
     """Gather pressure information nicely."""
@@ -224,8 +119,7 @@ mprint.w("Time (ms),T+ (ms),Pressure Canister (hPa),Pressure Bleed (hPa),Pressur
 # Sensors
 from adafruit_extended_bus import ExtendedI2C as I2C
 import adafruit_tca9548a
-import adafruit_mprls
-from RTC import RTC  # Our home-built Realtime Clock lib
+from pi.RTC import RTCWrappedSensor  # Our home-built Realtime Clock lib
 
 # Init GPIO
 #   We do this before connecting to i2c devices because we want to make sure our valves are closed!
@@ -260,36 +154,36 @@ except:
     mprint.p("COULD NOT CONNECT TO MULTIPLEXER!! Time: " + str(timeMS()) + " ms", output_log)
 
 # Create blank objects
-mprls_canister = WrapMPRLS()
-mprls_bleed = WrapMPRLS()
-mprls_tank_1 = WrapMPRLS()
-mprls_tank_2 = WrapMPRLS()
-mprls_tank_3 = WrapMPRLS()
+mprls_canister = MPRLSWrappedSensor()
+mprls_bleed = MPRLSWrappedSensor()
+mprls_tank_1 = MPRLSWrappedSensor()
+mprls_tank_2 = MPRLSWrappedSensor()
+mprls_tank_3 = MPRLSWrappedSensor()
 
 if multiplex != False:
     # Canister MPRLS
-    mprls_canister = WrapMPRLS(multiplexerLine=multiplex[0])
-    if mprls_canister.cantConnect:
+    mprls_canister = MPRLSWrappedSensor(multiplexer_line=multiplex[0])
+    if mprls_canister.cant_connect:
         mprint.p("COULD NOT CONNECT TO CANISTER MPRLS!! Time: " + str(timeMS()) + " ms", output_log)
 
     # Bleed Tank MPRLS
-    mprls_bleed = WrapMPRLS(multiplexerLine=multiplex[1])
-    if mprls_bleed.cantConnect:
+    mprls_bleed = MPRLSWrappedSensor(multiplexer_line=multiplex[1])
+    if mprls_bleed.cant_connect:
         mprint.p("COULD NOT CONNECT TO BLEED MPRLS!! Time: " + str(timeMS()) + " ms", output_log)
 
     # Tank 1 MPRLS
-    mprls_tank_1 = WrapMPRLS(multiplexerLine=multiplex[2])
-    if mprls_tank_1.cantConnect:
+    mprls_tank_1 = MPRLSWrappedSensor(multiplexer_line=multiplex[2])
+    if mprls_tank_1.cant_connect:
         mprint.p("COULD NOT CONNECT TO TANK 1 MPRLS!! Time: " + str(timeMS()) + " ms", output_log)
 
     # Tank 2 MPRLS
-    mprls_tank_2 = WrapMPRLS(multiplexerLine=multiplex[3])
-    if mprls_tank_2.cantConnect:
+    mprls_tank_2 = MPRLSWrappedSensor(multiplexer_line=multiplex[3])
+    if mprls_tank_2.cant_connect:
         mprint.p("COULD NOT CONNECT TO TANK 2 MPRLS!! Time: " + str(timeMS()) + " ms", output_log)
 
     # Tank 3 MPRLS
-    mprls_tank_3 = WrapMPRLS(multiplexerLine=multiplex[4])
-    if mprls_tank_3.cantConnect:
+    mprls_tank_3 = MPRLSWrappedSensor(multiplexer_line=multiplex[4])
+    if mprls_tank_3.cant_connect:
         mprint.p("COULD NOT CONNECT TO TANK 3 MPRLS!! Time: " + str(timeMS()) + " ms", output_log)
     
     mprint.p("MPRLS' connected. Time: " + str(timeMS()) + " ms", output_log)
@@ -297,7 +191,7 @@ else:
     mprint.p("NOT CONNECTING TO THE MPRLS because there's no multiplexer on the line!!. Time: " + str(timeMS()) + " ms", output_log)
 
 # Connect to the RTC
-rtc = RTC(i2c)
+rtc = RTCWrappedSensor(i2c)
 
 # Establish our T0
 time_try_rtc = timeMS()
@@ -313,7 +207,7 @@ if rtc.isReady():
 else:   # Bruh. No RTC on the line. Guess that's it.
 
     TIME_LAUNCH_MS = FIRST_ON_MS - DEFAULT_BOOT_TIME + 60000 # We'll assume 35 seconds in, based on lab testing. Add 60 seconds from 1.SYS.1 Early Activation
-    rtc.setRef(TIME_LAUNCH_MS)
+    rtc.setEstT0(TIME_LAUNCH_MS)
     
     mprint.p("NO RTC!! Going to assume it's 35 seconds past T-60. Time: " + str(timeMS()) + " ms", output_log)
     mprint.pform("T0: " + str(TIME_LAUNCH_MS) + " ms", rtc.getTPlusMS(), output_log)
@@ -374,7 +268,7 @@ def gswitch_callback(channel):
     """
     t0 = timeMS()
     GPIO.remove_event_detect(GSWITCH_PIN)
-    difference = rtc.setRef(t0)
+    difference = rtc.setEstT0(t0)
     mprint.pform("G-Switch input! New t0: " + str(t0) + " ms. Difference from RBF estimation: " + str(difference) + " ms", rtc.getTPlusMS(), output_log)
     
 # Setup the G-Switch listener

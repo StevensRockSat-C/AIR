@@ -57,8 +57,8 @@ def test_mprlswrappedsensor_no_multiplexer():
     """
     sensor = MPRLSWrappedSensor(multiplexer_line=None)
     assert sensor.cant_connect is True
-    assert sensor._get_pressure() == -1
-    assert sensor._get_triple_pressure() == -1
+    assert sensor.pressure == -1
+    assert sensor.triple_pressure == -1
 
 def test_mprlswrappedsensor_normal(monkeypatch):
     """
@@ -92,9 +92,9 @@ def test_mprlswrappedsensor_normal(monkeypatch):
     sensor = MPRLSWrappedSensor(dummy_line)
     assert sensor.cant_connect is False
     # Single pressure reading should return 15.0.
-    assert sensor._get_pressure() == 15.0
+    assert sensor.pressure == 15.0
     # Triple pressure reading calls the sensor three times, so the median of [15.0, 15.0, 15.0] is 15.0.
-    assert sensor._get_triple_pressure() == 15.0
+    assert sensor.triple_pressure == 15.0
 
 def test_mprlswrappedsensor_exception(monkeypatch):
     """
@@ -121,8 +121,8 @@ def test_mprlswrappedsensor_exception(monkeypatch):
     dummy_line = object()
     sensor = MPRLSWrappedSensor(dummy_line)
     # In case of exceptions, both single and triple readings should return -1.
-    assert sensor._get_pressure() == -1
-    assert sensor._get_triple_pressure() == -1
+    assert sensor.pressure == -1
+    assert sensor.triple_pressure == -1
 
 
 def test_mprlswrappedsensor_partial(monkeypatch):
@@ -155,7 +155,15 @@ def test_mprlswrappedsensor_partial(monkeypatch):
     sensor = MPRLSWrappedSensor(dummy_line)
     # The triple reading collects pressures: 15.0, (skips error), 17.0.
     # The median of [15.0, 17.0] is (15.0+17.0)/2 = 16.0.
-    assert sensor._get_triple_pressure() == 16.0
+    assert sensor.triple_pressure == 16.0
+
+
+def test_mprlswrappedsensor_no_lib(monkeypatch):
+    """Simulate a sensor that has no library available."""
+
+    dummy_line = object()
+    sensor = MPRLSWrappedSensor(dummy_line)
+    assert sensor.cant_connect == True
 
 # -----------------------------------------
 # Dummy I2C channel for NovaPressureSensor tests
@@ -179,7 +187,7 @@ class DummyI2CFailChannel:
 # Tests for NovaPressureSensor
 # -----------------------------------------
 
-def test_nova_pressure_sensor_valid(monkeypatch):
+def test_nova_pressure_sensor_valid_small(monkeypatch):
     """
     Simulate a valid NovaPressureSensor reading.
     For a raw value of 1700, the conversion yields:
@@ -199,9 +207,101 @@ def test_nova_pressure_sensor_valid(monkeypatch):
     
     # _get_pressure computes the conversion.
     expected_hpa = ((raw_value - sensor.P_MIN) * (sensor.PSI_MAX - sensor.PSI_MIN) / (sensor.P_MAX - sensor.P_MIN)) * sensor.PSI_TO_HPA
-    pressure = sensor._get_pressure()
+    pressure = sensor.pressure
     # Allow for a small floating-point tolerance.
     assert abs(pressure - expected_hpa) < 0.1
+
+def test_nova_pressure_sensor_valid_large(monkeypatch):
+    """
+    Simulate a valid NovaPressureSensor reading.
+    For a raw value of 14000, the conversion yields:
+      pressure_psi = ((14000 - P_MIN) * (PSI_MAX - PSI_MIN) / (P_MAX - P_MIN)) + PSI_MIN
+      hPa = pressure_psi * PSI_TO_HPA
+    We check that _get_pressure returns approximately the expected value.
+    """
+    # Use a raw value chosen to produce a valid (<= 30) hPa reading.
+    # For NovaPressureSensor, P_MIN = 1638, P_MAX = 14745.
+    # With raw_value = 14000, pressure_psi = ((14000-1638)*30/(14745-1638))
+    #   = (12362*30/13107) ≈ 28.29 psi, so hPa ≈ 28.29 * 68.9476 ≈ 1946.
+    raw_value = 14000
+    channel = DummyI2CChannel(raw_value)
+    # Avoid actual sleep delays
+    monkeypatch.setattr(time, "sleep", lambda x: None)
+    sensor = NovaPressureSensor(channel)
+    
+    # _get_pressure computes the conversion.
+    expected_hpa = ((raw_value - sensor.P_MIN) * (sensor.PSI_MAX - sensor.PSI_MIN) / (sensor.P_MAX - sensor.P_MIN)) * sensor.PSI_TO_HPA
+    pressure = sensor.pressure
+    # Allow for a small floating-point tolerance.
+    assert abs(pressure - expected_hpa) < 0.1
+
+def test_nova_pressure_sensor_valid_top_edge(monkeypatch):
+    """
+    Simulate a NovaPressureSensor reading on the top edge of the valid range.
+    """
+    # Use a raw value chosen to produce a valid (<= 30) hPa reading.
+    # For NovaPressureSensor, P_MIN = 1638, P_MAX = 14745.
+    # With raw_value = 14745, pressure_psi = ((14745-1638)*30/(14745-1638))
+    #   = (13107*30/13107) ≈ 30 psi, so hPa ≈ 30 * 68.9476 ≈ 2068.
+    raw_value = 14745
+    channel = DummyI2CChannel(raw_value)
+    # Avoid actual sleep delays
+    monkeypatch.setattr(time, "sleep", lambda x: None)
+    sensor = NovaPressureSensor(channel)
+    
+    # _get_pressure computes the conversion.
+    expected_hpa = ((raw_value - sensor.P_MIN) * (sensor.PSI_MAX - sensor.PSI_MIN) / (sensor.P_MAX - sensor.P_MIN)) * sensor.PSI_TO_HPA
+    pressure = sensor.pressure
+    # Allow for a small floating-point tolerance.
+    assert abs(pressure - expected_hpa) < 0.1
+
+def test_nova_pressure_sensor_valid_bottom_edge(monkeypatch):
+    """
+    Simulate a NovaPressureSensor reading on the bottom edge of the valid range.
+    """
+    # Use a raw value chosen to produce a valid (<= 30) hPa reading.
+    # For NovaPressureSensor, P_MIN = 1638, P_MAX = 14745.
+    # With raw_value = 1639, pressure_psi = ((1639-1638)*30/(14745-1638))
+    #   = (1*30/13107) ≈ 0.00023 psi, so hPa ≈ 0.00023 * 68.9476 ≈ 0.016.
+    raw_value = 1639
+    channel = DummyI2CChannel(raw_value)
+    # Avoid actual sleep delays
+    monkeypatch.setattr(time, "sleep", lambda x: None)
+    sensor = NovaPressureSensor(channel)
+    
+    # _get_pressure computes the conversion.
+    expected_hpa = ((raw_value - sensor.P_MIN) * (sensor.PSI_MAX - sensor.PSI_MIN) / (sensor.P_MAX - sensor.P_MIN)) * sensor.PSI_TO_HPA
+    pressure = sensor.pressure
+    # Allow for a small floating-point tolerance.
+    assert abs(pressure - expected_hpa) < 0.1
+
+def test_nova_pressure_sensor_invalid_top_edge(monkeypatch):
+    """
+    Simulate a NovaPressureSensor reading above the top edge of the valid range.
+    """
+    raw_value = 14746
+    channel = DummyI2CChannel(raw_value)
+    # Avoid actual sleep delays
+    monkeypatch.setattr(time, "sleep", lambda x: None)
+    sensor = NovaPressureSensor(channel)
+    
+    pressure = sensor.pressure
+    # Allow for a small floating-point tolerance.
+    assert pressure == -1
+
+def test_nova_pressure_sensor_invalid_bottom_edge(monkeypatch):
+    """
+    Simulate a NovaPressureSensor reading below the bottom edge of the valid range.
+    """
+    raw_value = 1637
+    channel = DummyI2CChannel(raw_value)
+    # Avoid actual sleep delays
+    monkeypatch.setattr(time, "sleep", lambda x: None)
+    sensor = NovaPressureSensor(channel)
+    
+    pressure = sensor.pressure
+    # Allow for a small floating-point tolerance.
+    assert pressure == -1
 
 def test_nova_pressure_sensor_triple(monkeypatch):
     """
@@ -214,7 +314,7 @@ def test_nova_pressure_sensor_triple(monkeypatch):
     sensor = NovaPressureSensor(channel)
     
     expected_hpa = ((raw_value - sensor.P_MIN) * (sensor.PSI_MAX - sensor.PSI_MIN) / (sensor.P_MAX - sensor.P_MIN)) * sensor.PSI_TO_HPA
-    triple = sensor._get_triple_pressure()
+    triple = sensor.triple_pressure
     assert abs(triple - expected_hpa) < 0.1
 
 def test_nova_pressure_sensor_failure(monkeypatch):
@@ -225,8 +325,8 @@ def test_nova_pressure_sensor_failure(monkeypatch):
     channel = DummyI2CFailChannel()
     monkeypatch.setattr(time, "sleep", lambda x: None)
     sensor = NovaPressureSensor(channel)
-    assert sensor._get_pressure() == -1
-    assert sensor._get_triple_pressure() == -1
+    assert sensor.pressure == -1
+    assert sensor.triple_pressure == -1
 
 def test_nova_pressure_sensor_init_ready(monkeypatch):
     """
@@ -271,8 +371,8 @@ def test_mprlsfile_empty_file():
     
     sensor = MPRLSFile(temp_filename)
     assert sensor.data == []
-    assert sensor._get_pressure() == -1
-    assert sensor._get_triple_pressure() == -1
+    assert sensor.pressure == -1
+    assert sensor.triple_pressure == -1
     os.remove(temp_filename)
 
 def test_mprlsfile_get_pressure():
@@ -281,7 +381,7 @@ def test_mprlsfile_get_pressure():
     with open(PRESSURE_FILE, "r") as f:
         data = [float(line.strip()) for line in f.readlines()]
     for value in data:
-        assert sensor._get_pressure() == value
+        assert sensor.pressure == value
 
 def test_mprlsfile_get_triple_pressure():
     sensor = MPRLSFile(PRESSURE_FILE)
@@ -295,7 +395,7 @@ def test_mprlsfile_get_triple_pressure():
                 expected_values+=[data[j]]
             else:
                 expected_values+=[-1]
-        assert sensor._get_triple_pressure() == sorted(expected_values)[1]  # Median calculation
+        assert sensor.triple_pressure == sorted(expected_values)[1]  # Median calculation
 
 def test_mprlsfile_corrupted_data():
     with tempfile.NamedTemporaryFile(delete=False) as temp_file:
@@ -304,6 +404,6 @@ def test_mprlsfile_corrupted_data():
     
     sensor = MPRLSFile(temp_filename)
     assert sensor.data == []  # Should handle parsing failure gracefully
-    assert sensor._get_pressure() == -1
-    assert sensor._get_triple_pressure() == -1
+    assert sensor.pressure == -1
+    assert sensor.triple_pressure == -1
     os.remove(temp_filename)

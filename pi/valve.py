@@ -1,4 +1,5 @@
 from warnings import warn
+from typing import Final, Literal
 try:
     import RPi.GPIO as GPIO
 except ImportError:
@@ -7,20 +8,42 @@ except ImportError:
     class MockGPIO:
         """Mock GPIO for non-Raspberry Pi environments (testing)."""
         
-        BCM = 11
-        BOARD = 10
-        OUT = 0
-        HIGH = 1
-        LOW = 0
+        BOARD: Final = 10
+        BCM: Final = 11
+        OUT: Final = 0
+        IN: Final = 1
+        HIGH: Literal[1] = 1
+        LOW: Literal[0] = 0
+
+        @classmethod
+        def setmode(cls, mode):
+            cls._mode = mode
+
+        @classmethod
+        def getmode(cls):
+            return cls._mode
+
+        @classmethod
+        def setup(cls, pin, mode):
+            pass
+
+        @classmethod
+        def output(cls, pin, state):
+            pass
+
+        @classmethod
+        def cleanup(cls):
+            cls._mode = None
 
     GPIO = MockGPIO()  # Replace RPi.GPIO with mock
 
 class Valve:
     """Everything related to a valve."""
 
-    _instances = []  # Track all instances for cleanup
+    _instances: list = []  # Track all instances for cleanup
+    _gpio_mode: Literal[10, 11] = GPIO.BCM
 
-    def __init__(self, pin: int, name: str, gpio_mode=GPIO.BCM):
+    def __init__(self, pin: int, name: str):
         """
         Initialize the Valve object.
 
@@ -38,15 +61,19 @@ class Valve:
         None.
 
         """
-        self.pin = pin
-        self.name = name
+        self.pin: int = pin
+        self.name: str = name
 
         # Set GPIO mode, if it hasn't been already
-        if GPIO.getmode() != gpio_mode:
-            GPIO.setmode(gpio_mode)
+        if GPIO.getmode() != Valve._gpio_mode:
+            GPIO.setmode(Valve._gpio_mode)
 
-        GPIO.setup(self.pin, GPIO.OUT)  # Set the pin to output mode
-        Valve._instances.append(self)
+        duplicate_name = next((valve.name for valve in Valve._instances if valve.pin == self.pin), None)
+        if not any(valve.pin == self.pin for valve in Valve._instances):
+            GPIO.setup(self.pin, GPIO.OUT)  # Set the pin to output mode
+            Valve._instances.append(self)
+        else:
+            warn(f"Valve with pin {self.pin} ({duplicate_name}) already exists!")
 
     def open(self):
         """Pull the valve pin HIGH (open the valve)."""
