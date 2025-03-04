@@ -1,3 +1,4 @@
+import warnings
 import pytest
 import sys
 sys.path.append('../')
@@ -42,6 +43,11 @@ def mock_gpio(monkeypatch):
     monkeypatch.setattr(ValveClass, "GPIO", MockGPIO)
     return MockGPIO  # Return the mocked class for additional assertions
 
+@pytest.fixture(autouse=True)
+def cleanup_valves():
+    """Cleanup all valves after tests."""
+    Valve.cleanup_all()
+
 def test_valve_initialization(mock_gpio):
     """Test that a valve initializes correctly and sets up GPIO."""
     valve = Valve(27, "test_valve")
@@ -65,18 +71,19 @@ def test_valve_close(mock_gpio):
 
 def test_valve_custom_gpio_mode(mock_gpio):
     """Test initializing a valve with a custom GPIO mode."""
-    valve = Valve(27, "test_valve", gpio_mode=mock_gpio.BOARD)
+    Valve._gpio_mode = mock_gpio.BOARD
+    valve = Valve(27, "test_valve")
 
     assert mock_gpio.getmode() == mock_gpio.BOARD  # Check custom mode was set
 
-def test_valve_does_not_reset_gpio_if_already_set(mock_gpio):
-    """Test that the GPIO mode is not changed if already set."""
-    mock_gpio.setmode(mock_gpio.BCM)  # Simulate mode already being set
+def test_duplicate_valves(mock_gpio):
+    """Test that duplicate valves are not created."""
 
-    valve = Valve(27, "test_valve")
+    valve1 = Valve(27, "test_valve_1")
+    valve2 = Valve(29, "test_valve_2") # Uh-oh, we miss-typed!
 
-    # Ensure mode was not changed again
-    assert mock_gpio.getmode() == mock_gpio.BCM
+    with pytest.warns(UserWarning, match=r"Valve with pin 29 \(test_valve_2\) already exists!"):
+        valve3 = Valve(29, "test_valve_3")
 
 def test_valve_cleanup_all(mock_gpio):
     """Test cleanup of all valves."""
@@ -85,10 +92,10 @@ def test_valve_cleanup_all(mock_gpio):
 
     # Store pin states before cleanup
     valve1.close()
-    valve2.close()
+    valve2.open()
 
     assert mock_gpio._pin_states[27] == mock_gpio.LOW
-    assert mock_gpio._pin_states[22] == mock_gpio.LOW
+    assert mock_gpio._pin_states[22] == mock_gpio.HIGH
 
     # Now call cleanup
     Valve.cleanup_all()
@@ -96,3 +103,14 @@ def test_valve_cleanup_all(mock_gpio):
     # Ensure cleanup reset everything
     assert mock_gpio.getmode() is None
     assert not mock_gpio._pin_states  # Should be empty
+
+    # Test re-using the Valve class after cleanup
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        valve1 = Valve(27, "valve1")
+        valve2 = Valve(22, "valve2")
+        valve1.open()
+        valve2.close()
+
+    assert mock_gpio._pin_states[27] == mock_gpio.HIGH
+    assert mock_gpio._pin_states[22] == mock_gpio.LOW
