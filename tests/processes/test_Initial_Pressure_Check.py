@@ -9,7 +9,7 @@ sys.path.append('../../')
 
 from pi.processes.process_initial_pressure_check import InitialPressureCheck
 from pi.RTC import RTCFile
-from pi.MPRLS import MPRLSFile
+from pi.MPRLS import MPRLSFile, MockPressureSensorStatic
 from tests.test_Tank import MockValve
 from pi.multiprint import MockMultiPrinter
 
@@ -119,3 +119,21 @@ def test_cleanup(setup_initial_pressure_check, initial_pressure_check):
     initial_pressure_check.run()
 
     assert (f"T+ {Process.rtc.getTPlusMS()} ms\tFinished Initial Pressure Check.") in Process.multiprint.logs[Process.output_log.name]
+
+def test_uses_triple_pressure(setup_initial_pressure_check, initial_pressure_check):
+    """Test that triple_pressure is used for dead tank determination."""
+    # Create a tank with different pressure and triple_pressure values
+    class MockTankWithDifferentPressures(MockTank):
+        def __init__(self, name):
+            super().__init__(name, "test_Initial_Pressure_Check_all_good.csv")
+            self.mprls = MockPressureSensorStatic(800, 950)
+    
+    tanks = [MockTankWithDifferentPressures("A")]
+    initial_pressure_check.set_tanks(tanks)
+    
+    initial_pressure_check.run()
+    
+    # Tank should be marked dead because triple_pressure is atmospheric (>900)
+    assert tanks[0].dead
+    # Verify the log message uses triple_pressure value
+    assert f"T+ {Process.rtc.getTPlusMS()} ms\tPressure in Tank {tanks[0].valve.name} is atmospheric (950 hPa). Marked it as dead" in Process.multiprint.logs[Process.output_log.name]

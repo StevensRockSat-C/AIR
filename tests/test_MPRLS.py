@@ -5,7 +5,7 @@ sys.path.append('../')
 import tempfile
 import os
 import time
-from pi.MPRLS import MPRLSFile, MPRLSWrappedSensor, NovaPressureSensor
+from pi.MPRLS import MPRLSFile, MPRLSWrappedSensor, MockPressureSensorStatic, NovaPressureSensor
 
 # -----------------------------------------
 # Dummy implementations for MPRLSWrappedSensor tests
@@ -407,3 +407,40 @@ def test_mprlsfile_corrupted_data():
     assert sensor.pressure == -1
     assert sensor.triple_pressure == -1
     os.remove(temp_filename)
+
+# -----------------------------------------
+# Tests for MockPressureSensorStatic
+# -----------------------------------------
+
+def test_mock_pressure_sensor_static():
+    sensor = MockPressureSensorStatic(pressure=15.0, triple_pressure=16.0)
+    assert sensor.pressure == 15.0
+    assert sensor.triple_pressure == 16.0
+
+def test_mock_pressure_sensor_default_triple_pressure():
+    sensor = MockPressureSensorStatic(pressure=20.0)
+    assert sensor.pressure == 20.0
+    assert sensor.triple_pressure == 20.0  # Defaults to same as pressure
+
+def test_mock_pressure_sensor_no_connection():
+    sensor = MockPressureSensorStatic(pressure=-1, triple_pressure=-1)
+    assert sensor.pressure == -1
+    assert sensor.triple_pressure == -1
+    assert sensor.cant_connect is True
+
+def test_mock_pressure_sensor_partial_connection():
+    sensor = MockPressureSensorStatic(pressure=10.0, triple_pressure=-1)
+    assert sensor.pressure == 10.0
+    assert sensor.triple_pressure == -1
+    assert sensor.cant_connect is True
+
+def test_mock_pressure_sensor_changing_values():
+    sensor = MockPressureSensorStatic(pressure=5.0, triple_pressure=7.0)
+    assert sensor.pressure == 5.0
+    assert sensor.triple_pressure == 7.0
+    
+    sensor.pressure = 8.5  # Simulating a change in pressure
+    sensor.triple_pressure = 9.2
+    
+    assert sensor.pressure == 5.0
+    assert sensor.triple_pressure == 7.0
