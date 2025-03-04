@@ -1,5 +1,6 @@
 import sys
 import os
+from warnings import warn
 
 # Allow execution from 'pi' directory
 if __name__ == "__main__":
@@ -55,6 +56,7 @@ class Tank:
 
     def _set_pressure_sensor(self, value):
         """A pressure sensor is permanently attached to a tank, so we cannot reset it."""
+        warn("A pressure sensor is permanently attached to a tank, so we cannot reset it.")
         pass
 
     def _del_pressure_sensor(self):

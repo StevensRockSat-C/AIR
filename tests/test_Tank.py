@@ -1,3 +1,4 @@
+import warnings
 import pytest
 import sys
 sys.path.append('../')
@@ -75,3 +76,16 @@ def test_tank_open_close(mock_mprls):
 
     tank.close()
     assert tank.valve.state == "CLOSED"  # Ensure valve is closed
+
+def test_tank_pressure_sensor_property(mock_mprls):
+    """Test the pressure sensor property of a tank."""
+    valve = MockValve(10, "test_valve")
+    tank = Tank(valve, mock_mprls)
+
+    assert tank.mprls == mock_mprls
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        with pytest.raises(Warning):
+            tank.mprls = mock_mprls
+
