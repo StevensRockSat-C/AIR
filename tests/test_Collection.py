@@ -4,54 +4,20 @@ import sys
 sys.path.append('../')
 
 from pi.collection import Collection
+from pi.MPRLS import MockPressureSensorStatic
 
 class MockTank:
     """Mock Tank class to test Collection without real dependencies."""
     def __init__(self, name, pressure=50):
         self.name = name
         self.state = "CLOSED"
-        self.pressure_sensor = MockMPRLS(pressure)
+        self.pressure_sensor = MockPressureSensorStatic(pressure)
 
     def open(self):
         self.state = "OPEN"
 
     def close(self):
         self.state = "CLOSED"
-
-class MockMPRLS():
-    """Mock MPRLS class to simulate pressure readings for unit testing."""
-
-    def __init__(self, pressure):
-        self._pressure_value = pressure
-
-    def _get_pressure(self) -> float:
-        """Simulate getting a single pressure reading."""
-        return self._pressure_value
-
-    def _get_triple_pressure(self) -> float:
-        """Simulate getting a median of three pressure readings."""
-        return self._pressure_value  # Mocking behavior; real one would compute a median
-
-    def _set_pressure(self, value):
-        pass
-
-    def _del_pressure(self):
-        pass
-
-    # Define the properties to match the real class
-    pressure = property(
-        fget=_get_pressure,
-        fset=_set_pressure,
-        fdel=_del_pressure,
-        doc="The pressure of the MPRLS or -1 if it cannot be accessed"
-    )
-
-    triple_pressure = property(
-        fget=_get_triple_pressure,
-        fset=_set_pressure,
-        fdel=_del_pressure,
-        doc="The 3-sample median pressure of the MPRLS or -1 if it cannot be accessed"
-    )
 
 @pytest.fixture
 def mock_tank():
