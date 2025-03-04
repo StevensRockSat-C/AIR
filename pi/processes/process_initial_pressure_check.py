@@ -10,7 +10,7 @@ from pi.processes.process import Process
 class InitialPressureCheck(Process):
 
     def __init__(self):
-        self.tanks = None
+        self.tanks: list[Tank] = []
 
     def set_tanks(self, tanks: list[Tank]):
         self.tanks = tanks
@@ -38,14 +38,16 @@ class InitialPressureCheck(Process):
         Process.get_multiprint().pform("Performing Initial Pressure Check.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
     
         for tank in self.tanks:
-            if tank.mprls.cant_connect:
+            if tank.mprls.cant_connect or tank.mprls.pressure == -1:
                 Process.get_multiprint().pform("Pressure in Tank " + tank.valve.name + " cannot be determined! Marked it as dead", Process.get_rtc().getTPlusMS(), Process.get_output_log())
                 tank.dead = True
-            elif tank.mprls.pressure > 900:
-                Process.get_multiprint().pform("Pressure in Tank " + tank.valve.name + " is atmospheric (" + str(tank.mprls.pressure) + " hPa). Marked it as dead", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+                continue
+            tank_pressure = tank.mprls.triple_pressure
+            if tank_pressure > 900:
+                Process.get_multiprint().pform("Pressure in Tank " + tank.valve.name + " is atmospheric (" + str(tank_pressure) + " hPa). Marked it as dead", Process.get_rtc().getTPlusMS(), Process.get_output_log())
                 tank.dead = True
             else:
-                Process.get_multiprint().pform("Pressure in Tank " + tank.valve.name + " is " + str(tank.mprls.pressure) + ". All good.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+                Process.get_multiprint().pform("Pressure in Tank " + tank.valve.name + " is " + str(tank_pressure) + ". All good.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
 
     def cleanup(self):
         Process.get_multiprint().pform("Finished Initial Pressure Check.", Process.get_rtc().getTPlusMS(), Process.get_output_log())

@@ -60,7 +60,7 @@ def setup_initial_pressure_check(monkeypatch, mock_multiprint, mock_rtc, mock_lo
     Process.set_output_pressures(mock_pressures_log)
 
 @pytest.fixture
-def initial_pressure_check():
+def initial_pressure_check() -> InitialPressureCheck:
     """Fixture to create an instance of InitialPressureCheck."""
     return InitialPressureCheck()
 
@@ -78,7 +78,7 @@ def test_initialize(setup_initial_pressure_check, initial_pressure_check, mock_m
 
     assert ("T+ " + str(Process.rtc.getTPlusMS()) + " ms\t" + "Initializing Initial Pressure Check.") in Process.multiprint.logs[Process.output_log.name]
 
-def test_all_good(setup_initial_pressure_check, initial_pressure_check):
+def test_all_good(setup_initial_pressure_check, initial_pressure_check: InitialPressureCheck):
     """Test when all tanks have good pressure."""
     tanks = [MockTank("A", "test_Initial_Pressure_Check_all_good.csv"), MockTank("B", "test_Initial_Pressure_Check_all_good.csv"), MockTank("C", "test_Initial_Pressure_Check_all_good.csv")]
     initial_pressure_check.set_tanks(tanks)
