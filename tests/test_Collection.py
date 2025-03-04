@@ -10,7 +10,7 @@ class MockTank:
     def __init__(self, name, pressure=50):
         self.name = name
         self.state = "CLOSED"
-        self.mprls = MockMPRLS(pressure)
+        self.pressure_sensor = MockMPRLS(pressure)
 
     def open(self):
         self.state = "OPEN"
@@ -76,7 +76,7 @@ def test_collection_initialization():
     assert collection.down_driving_pressure == 998.20
     assert collection.upwards_bleed is False
     assert collection.tank is None
-    assert collection.mprls is None # Should be None when no tank is assigned
+    assert collection.pressure_sensor is None # Should be None when no tank is assigned
     assert collection.sampled is False
     assert collection.sample_upwards is True
     assert collection.sampled_count == 0
@@ -94,7 +94,7 @@ def test_collection_associate_tank(mock_tank):
     collection.associate_tank(mock_tank)
 
     assert collection.tank == mock_tank
-    assert collection.mprls == mock_tank.mprls  # Ensure mprls is dynamically referenced
+    assert collection.pressure_sensor == mock_tank.pressure_sensor  # Ensure mprls is dynamically referenced
 
 def test_collection_associate_tank_updates_properly(mock_tank):
     """Test re-associating a different tank and sensor with a collection."""
@@ -109,15 +109,15 @@ def test_collection_associate_tank_updates_properly(mock_tank):
     # First association
     collection.associate_tank(mock_tank)
     assert collection.tank == mock_tank
-    assert collection.mprls == mock_tank.mprls
+    assert collection.pressure_sensor == mock_tank.pressure_sensor
 
     # Change association
     new_tank = MockTank("New Tank", pressure=150)
     collection.associate_tank(new_tank)
 
     assert collection.tank == new_tank
-    assert collection.mprls == new_tank.mprls
-    assert collection.mprls.pressure == 150
+    assert collection.pressure_sensor == new_tank.pressure_sensor
+    assert collection.pressure_sensor.pressure == 150
     
 def test_collections_in_array():
     """Verify handling of collection changes in an array."""
@@ -163,5 +163,5 @@ def test_collections_in_array():
     
     assert collections[0].tank == tank3
     assert collections[2].tank == tank1
-    assert collections[0].mprls.pressure == 300
-    assert collections[2].mprls.pressure == 100
+    assert collections[0].pressure_sensor.pressure == 300
+    assert collections[2].pressure_sensor.pressure == 100

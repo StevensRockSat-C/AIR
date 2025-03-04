@@ -5,6 +5,7 @@ import os
 if __name__ == "__main__":
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
     
+from pi.MPRLS import PressureSensor
 from pi.tank import Tank
 
 class Collection:
@@ -60,13 +61,13 @@ class Collection:
         self.sampled_count = 0  # Tracks how many times we've tried to sample
         
     @property
-    def mprls(self):
-        """Dynamically retrieve the MPRLS sensor from the associated tank."""
-        return self.tank.mprls if self.tank else None
+    def pressure_sensor(self) -> PressureSensor:
+        """Dynamically retrieve the pressure sensor from the associated tank."""
+        return self.tank.pressure_sensor if self.tank else None
     
     def associate_tank(self, tank: Tank):
         """
-        Associate a tank and an MPRLS sensor with this collection.
+        Associate a tank and it's pressure sensor with this collection.
 
         Parameters
         ----------
