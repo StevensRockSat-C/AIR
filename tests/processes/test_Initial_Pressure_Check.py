@@ -136,4 +136,4 @@ def test_uses_triple_pressure(setup_initial_pressure_check, initial_pressure_che
     # Tank should be marked dead because triple_pressure is atmospheric (>900)
     assert tanks[0].dead
     # Verify the log message uses triple_pressure value
-    assert f"T+ {Process.rtc.getTPlusMS()} ms\tPressure in Tank {tanks[0].valve.name} is atmospheric (950 hPa). Marked it as dead" in Process.multiprint.logs[Process.output_log.name]
+    assert f"T+ {Process.rtc.getTPlusMS()} ms\tPressure in Tank {tanks[0].valve.name} is atmospheric ({tanks[0].mprls.triple_pressure} hPa). Marked it as dead" in Process.multiprint.logs[Process.output_log.name]
