@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 import time
 from statistics import median
 from warnings import warn
-
+from typing import Optional
 try:
     import adafruit_mprls
 except ImportError:
@@ -252,12 +252,14 @@ class MPRLSFile(PressureSensor):
         self.file_path = file_path
         self.data = self._load_data()
         self.index = 0
+        self.cant_connect = False
     
     def _load_data(self):
         try:
             with open(self.file_path, 'r') as f:
                 return [float(line.strip()) for line in f.readlines()]
         except Exception:
+            self.cant_connect = True
             return []
     
     def _get_pressure(self) -> float:
@@ -297,4 +299,50 @@ class MPRLSFile(PressureSensor):
         fset=_set_pressure,
         fdel=_del_pressure,
         doc="The 3-sample median pressure from the File or -1 if it cannot be accessed"
+    )
+
+class MockPressureSensorStatic(PressureSensor):
+    """Mock PressureSensor class to simulate pressure readings which are constant for testing."""
+
+    def __init__(self, pressure: float, triple_pressure: Optional[float] = None):
+        self._pressure_value = pressure
+        if triple_pressure is None:
+            self._triple_pressure_value = pressure
+        else:
+            self._triple_pressure_value = triple_pressure
+            
+        if self.pressure == -1 or self.triple_pressure == -1:
+            self.cant_connect = True
+        else:
+            self.cant_connect = False
+
+    def _get_pressure(self) -> float:
+        """Simulate getting a single pressure reading."""
+        return self._pressure_value
+
+    def _get_triple_pressure(self) -> float:
+        """Simulate getting a median of three pressure readings."""
+        time.sleep(0.010) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
+                          # Simulate 2 sleeps for reading from the actual sensor
+        return self._triple_pressure_value
+
+    def _set_pressure(self, value):
+        pass
+
+    def _del_pressure(self):
+        pass
+
+    # Define the properties to match the real class
+    pressure = property(
+        fget=_get_pressure,
+        fset=_set_pressure,
+        fdel=_del_pressure,
+        doc="The pressure of the PressureSensor or -1 if it cannot be accessed"
+    )
+
+    triple_pressure = property(
+        fget=_get_triple_pressure,
+        fset=_set_pressure,
+        fdel=_del_pressure,
+        doc="The 3-sample median pressure of the PressureSensor or -1 if it cannot be accessed"
     )
