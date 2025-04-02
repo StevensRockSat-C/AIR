@@ -7,7 +7,7 @@ from warnings import warn
 import sys
 sys.path.append('../../')
 
-from pi.processes.process import Process
+from pi.processes.process import Process, PlumbingState
 from pi.RTC import RTCFile
 from pi.MPRLS import MPRLSFile
 from tests.test_Tank import MockValve
@@ -82,6 +82,7 @@ def test_process_initialization():
     assert Process.rtc == rtc
     assert Process.output_log == log
     assert Process.output_pressures == pressures
+    assert Process.plumbing_state == PlumbingState.READY
     
     log.close()
     pressures.close()
