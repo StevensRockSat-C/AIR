@@ -6,11 +6,19 @@ from typing import Union
 from warnings import warn
 import sys
 import os
+from enum import Enum
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from pi.multiprint import MultiPrinter, MultiPrinterAbstract
 from pi.RTC import RTC
+
+class PlumbingState(Enum):
+    """
+    An enumeration to represent the state at which the plumbing is in.
+    """
+    READY = 1
+    MAIN_LINE_FAILURE = 2
 
 class Process(ABC):
     """
@@ -21,6 +29,7 @@ class Process(ABC):
     output_log: Union[TextIOWrapper, _TemporaryFileWrapper] = None
     output_pressures: Union[TextIOWrapper, _TemporaryFileWrapper] = None
     rtc: RTC = None
+    plumbing_state: PlumbingState = PlumbingState.READY
     
     @classmethod
     def set_multiprint(cls, multiprint: MultiPrinter):
@@ -39,6 +48,10 @@ class Process(ABC):
         cls.rtc = rtc
 
     @classmethod
+    def set_plumbing_state(cls, plumbing_state: PlumbingState):
+        cls.plumbing_state = plumbing_state
+
+    @classmethod
     def get_multiprint(cls):
         return cls.multiprint
 
@@ -53,6 +66,10 @@ class Process(ABC):
     @classmethod
     def get_rtc(cls):
         return cls.rtc
+    
+    @classmethod
+    def get_plumbing_state(cls):
+        return cls.plumbing_state
 
     @classmethod
     def is_ready(cls):

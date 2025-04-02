@@ -6,7 +6,7 @@ if __name__ == "__main__":
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
     
 from pi.MPRLS import PressureSensor
-from pi.tank import Tank
+from pi.tank import Tank, TankState
 
 class Collection:
     """
@@ -56,7 +56,6 @@ class Collection:
         self.up_duration = up_duration
         self.down_duration = down_duration
         self.tank = tank
-        self.sampled = False
         self.sample_upwards = True  # Set to False if sampling on descent
         self.sampled_count = 0  # Tracks how many times we've tried to sample
         
@@ -75,6 +74,19 @@ class Collection:
             The tank for this collection.
         """
         self.tank = tank
+    
+    @property
+    def sampled(self) -> bool:
+        """
+        Pass-through for the tank's sampled status.
+        
+        Returns
+        -------
+        True if, and only if, the tank state is SAMPLED
+        """
+        if self.tank and self.tank.state == TankState.SAMPLED:
+            return True
+        return False
 
     @classmethod
     def swap_tanks(cls, collection1: 'Collection', collection2: 'Collection'):

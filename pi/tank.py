@@ -1,5 +1,6 @@
 import sys
 import os
+from enum import Enum
 from warnings import warn
 
 # Allow execution from 'pi' directory
@@ -38,8 +39,7 @@ class Tank:
         """
         self.valve = valve
         self.pressure_sensor = pressure_sensor
-        self.sampled = False
-        self.dead = False
+        self.state = TankState.UNKNOWN
 
     def open(self):
         """Open the valve to allow flow."""
@@ -68,3 +68,15 @@ class Tank:
         fdel=_del_pressure_sensor,
         doc="The pressure sensor of the tank"
     )
+
+class TankState(Enum):
+    """
+    An enumeration to represent the state at which a Tank is in.
+    """
+    UNKNOWN = 0
+    UNSAFE = 1
+    UNREACHABLE = 2
+    LAST_RESORT = 3
+    READY = 4
+    FAILED_SAMPLE = 5
+    SAMPLED = 6
