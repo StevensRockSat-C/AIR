@@ -4,8 +4,7 @@ from enum import Enum
 from warnings import warn
 
 # Allow execution from 'pi' directory
-if __name__ == "__main__":
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from pi.valve import Valve
 from pi.MPRLS import PressureSensor

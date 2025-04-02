@@ -2,7 +2,9 @@ import warnings
 import pytest
 import sys
 sys.path.append('../')
+
 from pi.tank import Tank, TankState
+from pi.MPRLS import MockPressureSensorStatic
 
 class MockValve:
     """Mock Valve class to fully isolate Tank tests."""
@@ -20,27 +22,7 @@ class MockValve:
 @pytest.fixture
 def mock_mprls(monkeypatch):
     """Mock the MPRLS class."""
-    class MockMPRLS:
-        def __init__(self):
-            pass
-        
-        def _get_pressure(self):
-            return 50
-        
-        def _set_pressure(self, value):
-            pass
-        
-        def _del_pressure(self):
-            pass
-        
-        pressure = property(
-            fget=_get_pressure,
-            fset=_set_pressure,
-            fdel=_del_pressure,
-            doc="The pressure of the Pressure Sensor or -1 if it cannot be accessed"
-        )
-    
-    return MockMPRLS()
+    return MockPressureSensorStatic(pressure=50)
 
 def test_tank_initialization(mock_mprls):
     """Test that a tank initializes correctly with a valve and a  pressure sensor."""

@@ -290,23 +290,21 @@ collection_1.mprls = mprls_tank_1
 collection_2.mprls = mprls_tank_2
 collection_3.mprls = mprls_tank_3
 
+# Setup Process
+from pi.processes.process import Process
+Process.set_multiprint(mprint)
+Process.set_rtc(rtc)
+Process.set_output_log(output_log)
+Process.set_output_pressures(output_pressures)
 
 # FUN BITS HERE
-def initialPressureCheck():
-    tanks = [tank_1, tank_2, tank_3, tank_bleed]
-    mprint.pform("Performing Initial Pressure Check.", rtc.getTPlusMS(), output_log)
-    
-    for tank in tanks:
-        if tank.mprls.cantConnect:
-            mprint.pform("Pressure in Tank " + tank.valve.name + " cannot be determined! Marked it as dead", rtc.getTPlusMS(), output_log)
-            tank.dead = True
-        elif tank.mprls.pressure > 900:
-            mprint.pform("Pressure in Tank " + tank.valve.name + " is atmospheric. Marked it as dead", rtc.getTPlusMS(), output_log)
-            tank.dead = True
-        else:
-            mprint.pform("Pressure in Tank " + tank.valve.name + " is " + str(tank.mprls.pressure) + ". All good.", rtc.getTPlusMS(), output_log)
-
-initialPressureCheck()
+# Initial Pressure Check
+# ------------------------------------------------------------
+from pi.processes.process_initial_pressure_check import InitialPressureCheck
+initial_pressure_check = InitialPressureCheck()
+initial_pressure_check.set_tanks([tank_1, tank_2, tank_3])
+initial_pressure_check.run()
+# ------------------------------------------------------------
 
 def swapTanks():
     """
