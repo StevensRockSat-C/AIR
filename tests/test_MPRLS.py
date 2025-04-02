@@ -9,6 +9,7 @@ from pi.MPRLS import MPRLSFile, MPRLSWrappedSensor, MockPressureSensorStatic, No
 
 # -----------------------------------------
 # Dummy implementations for MPRLSWrappedSensor tests
+# These simulate the behavior of adafruit_mprls.MPRLS
 # -----------------------------------------
 
 # A dummy sensor to simulate a working MPRLS sensor
