@@ -2,7 +2,7 @@ import warnings
 import pytest
 import sys
 sys.path.append('../')
-from pi.tank import Tank
+from pi.tank import Tank, TankState
 
 class MockValve:
     """Mock Valve class to fully isolate Tank tests."""
@@ -43,15 +43,13 @@ def mock_mprls(monkeypatch):
     return MockMPRLS()
 
 def test_tank_initialization(mock_mprls):
-    
     """Test that a tank initializes correctly with a valve and a  pressure sensor."""
     valve = MockValve(10, "test_valve")
     tank = Tank(valve, mock_mprls)
 
     assert tank.valve == valve
     assert tank.mprls == mock_mprls
-    assert tank.sampled is False
-    assert tank.dead is False
+    assert tank.state == TankState.UNKNOWN
 
 def test_tank_initialization_no_mprls(mock_mprls):
     """Assure that a tank will not initialize if no pressure sensor is provided."""
