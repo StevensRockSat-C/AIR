@@ -22,9 +22,10 @@ class InitialPressureCheck(Process):
             if Process.can_log():
                 Process.get_multiprint().pform("Process is not ready for Initial Pressure Check!", Process.get_rtc().getTPlusMS(), Process.get_output_log())
             return False
-        if self.initialize():
-            self.execute()
-            self.cleanup()
+        if not self.initialize():
+            return False
+        self.execute()
+        self.cleanup()
         return True
 
     def initialize(self) -> bool:

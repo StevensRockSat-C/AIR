@@ -82,9 +82,10 @@ class Process(ABC):
     def run(self) -> bool:
         if not self.__class__.is_ready():
             return False
-        if self.initialize():
-            self.execute()
-            self.cleanup()
+        if not self.initialize():
+            return False
+        self.execute()
+        self.cleanup()
         return True
 
     @abstractmethod
