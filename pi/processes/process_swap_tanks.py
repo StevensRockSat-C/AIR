@@ -35,11 +35,11 @@ class SwapTanks(Process):
 
     def initialize(self) -> bool:
         Process.get_multiprint().pform("Initializing SwapTanks.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
-        if self.tanks is None:
+        if not self.tanks:
             warn("Tanks not set for SwapTanks!")
             Process.get_multiprint().pform("Tanks not set for SwapTanks! Aborting!", Process.get_rtc().getTPlusMS(), Process.get_output_log())
             return False
-        if self.collections is None:
+        if not self.collections:
             warn("Collections not set for SwapTanks!")
             Process.get_multiprint().pform("Collections not set for SwapTanks! Aborting!", Process.get_rtc().getTPlusMS(), Process.get_output_log())
             return False
