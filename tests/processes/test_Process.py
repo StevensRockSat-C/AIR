@@ -10,15 +10,16 @@ sys.path.append('../../')
 from pi.processes.process import Process, PlumbingState
 from pi.RTC import RTCFile
 from pi.MPRLS import MPRLSFile
+from pi.tank import Tank
 from tests.test_Tank import MockValve
 from pi.multiprint import MockMultiPrinter
 
-class MockTank:
+class MockTank(Tank):
     """Mock Tank class to simulate tanks with valves and sensors."""
     def __init__(self, name, filepath: str):
         self.valve = MockValve(10, name)
-        self.mprls = MPRLSFile(os.path.join(os.path.dirname(os.path.abspath(__file__)), filepath))
-        self.dead = False
+        self.pressure_sensor = MPRLSFile(os.path.join(os.path.dirname(os.path.abspath(__file__)), filepath))
+        super().__init__(self.valve, self.pressure_sensor)
 
 @pytest.fixture
 def mock_multiprint(monkeypatch):
