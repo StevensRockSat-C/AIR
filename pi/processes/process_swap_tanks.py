@@ -66,7 +66,7 @@ class SwapTanks(Process):
                     not_ready_tanks.append(tank)
 
         # Sort ready tanks from least to greatest pressure
-        ready_tanks.sort(key=lambda tank: tank.mprls.pressure)
+        ready_tanks.sort(key=lambda tank: tank.mprls.triple_pressure)
 
         for collection in self.collections:
             if last_resort_tanks: # Assign last resort tanks first
@@ -85,7 +85,7 @@ class SwapTanks(Process):
                 collection.associate_tank(not_ready_tanks[0])
                 Process.get_multiprint().pform("Assigned tank " + str(not_ready_tanks[0].valve.name) + " to Collection " + str(collection.num), 
                                                Process.get_rtc().getTPlusMS(), Process.get_output_log())
-                ready_tanks.remove(not_ready_tanks[0])
+                not_ready_tanks.remove(not_ready_tanks[0])
                 continue
             
             # If we're here, no tank was assinged
