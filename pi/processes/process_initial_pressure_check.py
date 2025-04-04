@@ -74,8 +74,41 @@ class InitialPressureCheck(Process):
                 Process.get_multiprint().pform("Pressure in Tank " + tank.valve.name + " is " + str(tank_pressure) + ". Marked it READY.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
                 tank.state = TankState.READY
 
-        if tank.mprls.cant_connect or tank.mprls.pressure == -1:
-            pass
+        if self.manifold_pressure.triple_pressure != -1:
+            Process.get_multiprint().pform("Manifold pressure sensor is accessible. Opening the main valve for 2 seconds.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+            ref_manifold_pressure: float = self.manifold_pressure.triple_pressure # Record reference manifold pressrue
+            self.main_valve.open()
+
+            start_time = Process.rtc.getTPlusMS()
+            while Process.rtc.getTPlusMS() < start_time + 2000: # Keep the main valve open for 2 seconds
+                logPressures()
+
+            self.main_valve.close()
+            Process.get_multiprint().pform("Closed main valve.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+
+            new_manifold_pressure: float = self.manifold_pressure.triple_pressure # Record new manifold pressrue
+            delta_manifold_pressure = new_manifold_pressure - ref_manifold_pressure
+            Process.get_multiprint().pform("Manifold pressure is " + str(new_manifold_pressure) + " hPa, from " + str(ref_manifold_pressure) + " hPa. Delta " + str(delta_manifold_pressure) + " hPa.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+            
+            if abs(delta_manifold_pressure) <= 100 and new_manifold_pressure <= self.p_crit:
+                pass
+            
+            # TODO: MORE SHIT HERE FROM DIAGRAM
+
+            # At least one tank t UNSAFE with t.pressure < pcrit OR at least one tank t READY?
+            matching_tanks: list[Tank] = []
+            for tank in self.tanks:
+                if (tank.state == TankState.UNSAFE and tank.mprls.triple_pressure < self.p_crit) or tank.state == TankState.READY:
+                    matching_tanks.append(tank)
+            if not matching_tanks: return
+
+            # Of the matching tanks, set t.status of the lowest pressure tank to LAST_RESORT
+            lowest_tank = min(
+                (tank for tank in matching_tanks),
+                key=lambda x: x.mprls.triple_pressure
+            )
+            lowest_tank.state = TankState.LAST_RESORT
+
 
     def cleanup(self):
         Process.get_multiprint().pform("Finished Initial Pressure Check.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
