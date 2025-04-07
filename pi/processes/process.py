@@ -25,7 +25,7 @@ class Process(ABC):
     Abstract base class for processes.
     """
 
-    multiprint: MultiPrinter = None
+    multiprint: MultiPrinterAbstract = None
     output_log: Union[TextIOWrapper, _TemporaryFileWrapper] = None
     output_pressures: Union[TextIOWrapper, _TemporaryFileWrapper] = None
     rtc: RTC = None
@@ -93,7 +93,7 @@ class Process(ABC):
         """
         Check if the Process is ready to log.
         """
-        return isinstance(cls.multiprint, MultiPrinter) and isinstance(cls.output_log, TextIOWrapper) and isinstance(cls.rtc, RTC)
+        return isinstance(cls.multiprint, MultiPrinterAbstract) and isinstance(cls.output_log, (TextIOWrapper, _TemporaryFileWrapper)) and isinstance(cls.rtc, RTC)
 
     @abstractmethod
     def run(self) -> bool:

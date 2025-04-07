@@ -29,7 +29,7 @@ class LogPressures(Process):
         return True
 
     def initialize(self) -> bool:
-        if self.pressure_sensors is None:
+        if not self.pressure_sensors:
             Process.get_multiprint().pform("Pressure Sensors not set for LogPressures!", Process.get_rtc().getTPlusMS(), Process.get_output_log())
             warn("Pressure Sensors not set for Log Pressures!")
             return False
