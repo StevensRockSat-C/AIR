@@ -18,10 +18,11 @@ class SampleUpwards(Process):
         self.log_pressures: LogPressures
         self.main_valve: Valve
         self.dynamic_valve: Valve
+        self.static_valve: Valve
         self.manifold_pressure_sensor: PressureSensor
 
         self.t_efficacy: float = 2 # seconds
-        self.p_choke: float
+        self.p_choke: float # hPa
 
     def set_log_pressures(self, log_pressures_process: LogPressures):
         self.log_pressures = log_pressures_process
@@ -34,6 +35,9 @@ class SampleUpwards(Process):
 
     def set_dynamic_valve(self, dynamic_valve: Valve):
         self.dynamic_valve = dynamic_valve
+
+    def set_static_valve(self, static_valve: Valve):
+        self.static_valve = static_valve
 
     def set_manifold_pressure_sensor(self, manifold_pressure_sensor: PressureSensor):
         self.manifold_pressure_sensor = manifold_pressure_sensor
@@ -68,6 +72,10 @@ class SampleUpwards(Process):
         if not self.dynamic_valve:
             Process.get_multiprint().pform("Dynamic Valve not set for Sample Upwards! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
             warn("Dynamic Valve not set for Sample Upwards!")
+            return False
+        if not self.static_valve:
+            Process.get_multiprint().pform("Static Valve not set for Sample Upwards! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+            warn("Static Valve not set for Sample Upwards!")
             return False
         if not self.manifold_pressure_sensor:
             Process.get_multiprint().pform("Manifold Pressure Sensor not set for Sample Upwards! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
@@ -128,7 +136,7 @@ class SampleUpwards(Process):
             Process.get_multiprint().pform(f"Beginning Collection {c.num}", 
                                             Process.get_rtc().getTPlusMS(), Process.get_output_log())
            
-            # TODO: Sample lmao
+            self._do_sample_collection(c)
 
             if c.tank.state == TankState.SAMPLED:
                 Process.get_multiprint().pform(f"Collection {c.num} succeeded (Tank {c.tank.valve.name} {c.tank.state})!", 
@@ -136,6 +144,9 @@ class SampleUpwards(Process):
             else:
                 Process.get_multiprint().pform(f"Collection {c.num} failed (Tank {c.tank.valve.name} {c.tank.state})!", 
                                             Process.get_rtc().getTPlusMS(), Process.get_output_log())
+                
+    def _do_sample_collection(self, c: Collection) -> None:
+        pass # TODO: Sample lmao
                 
     def cleanup(self):
         Process.get_multiprint().pform("Finished Sample Upwards.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
