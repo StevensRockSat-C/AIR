@@ -6,17 +6,22 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from pi.tank import Tank, TankState
 from pi.processes.process import Process, PlumbingState
+from pi.processes.process_log_pressures import LogPressures
 from pi.MPRLS import PressureSensor
 from pi.valve import Valve
 
 class InitialPressureCheck(Process):
 
     def __init__(self):
+        self.log_pressures: LogPressures
         self.tanks: list[Tank] = []
         self.manifold_pressure: PressureSensor = None
         self.main_valve: Valve = None
         self.p_unsafe = 900 # hPa
         self.p_crit = 1050  # hPa
+
+    def set_log_pressures(self, log_pressures_process: LogPressures):
+        self.log_pressures = log_pressures_process
 
     def set_tanks(self, tanks: list[Tank]):
         self.tanks = tanks
@@ -42,6 +47,10 @@ class InitialPressureCheck(Process):
 
     def initialize(self) -> bool:
         Process.get_multiprint().pform("Initializing Initial Pressure Check.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+        if not self.log_pressures:
+            Process.get_multiprint().pform("LogPressures not set for Initial Pressure Check! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+            warn("LogPressures not set for Initial Pressure Check!")
+            return False
         if self.tanks is None:
             Process.get_multiprint().pform("Tanks not set for Initial Pressure Check! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
             warn("Tanks not set for Initial Pressure Check!")
@@ -87,7 +96,7 @@ class InitialPressureCheck(Process):
 
             start_time = Process.rtc.getTPlusMS()
             while Process.rtc.getTPlusMS() < start_time + 2000: # Keep the main valve open for 2 seconds
-                logPressures()
+                self.log_pressures.run()
 
             self.main_valve.close()
             Process.get_multiprint().pform("Closed main valve.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
