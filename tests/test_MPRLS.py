@@ -8,47 +8,6 @@ import time
 from pi.MPRLS import MPRLSFile, MPRLSWrappedSensor, MockPressureSensorStatic, NovaPressureSensor
 
 # -----------------------------------------
-# Dummy implementations for MPRLSWrappedSensor tests
-# These simulate the behavior of adafruit_mprls.MPRLS
-# -----------------------------------------
-
-# A dummy sensor to simulate a working MPRLS sensor
-class DummyMPRLSSensor:
-    def __init__(self, pressures):
-        # pressures is a list of values that will be returned sequentially
-        self._pressures = pressures
-        self._index = 0
-
-    @property
-    def pressure(self):
-        try:
-            value = self._pressures[self._index]
-        except IndexError:
-            value = self._pressures[-1]
-        self._index += 1
-        return value
-
-# A dummy sensor that raises an exception when reading pressure
-class DummyFailSensor:
-    @property
-    def pressure(self):
-        raise Exception("Simulated sensor error")
-
-# A dummy sensor that fails on one call in a sequence (for triple reading)
-class DummyPartialSensor:
-    def __init__(self):
-        self._values = [15.0, "raise", 17.0]
-        self._index = 0
-
-    @property
-    def pressure(self):
-        val = self._values[self._index]
-        self._index += 1
-        if val == "raise":
-            raise Exception("Simulated error")
-        return val
-
-# -----------------------------------------
 # Tests for MPRLSWrappedSensor
 # -----------------------------------------
 
