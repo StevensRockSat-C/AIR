@@ -31,6 +31,7 @@ def test_collection_initialization():
         up_start_time=40305,
         bleed_duration=1, 
         up_driving_pressure=1270.44,
+        up_final_stagnation_pressure=1600.5,
         choke_pressure=1500.0,
         up_duration=600
     )
@@ -39,6 +40,7 @@ def test_collection_initialization():
     assert collection.up_start_time == 40305
     assert collection.bleed_duration == 1
     assert collection.up_driving_pressure == 1270.44
+    assert collection.up_final_stagnation_pressure == 1600.5
     assert collection.p_choke == 1500.0
     assert collection.up_duration == 600
     assert collection.tank is None
@@ -63,6 +65,7 @@ def test_collection_associate_tank(mock_tank: MockTank):
         up_start_time=70000,
         bleed_duration=5,
         up_driving_pressure=753.43,
+        up_final_stagnation_pressure=403.5,
         choke_pressure=500.0,
         up_duration=700
     )
@@ -79,6 +82,7 @@ def test_collection_associate_tank_updates_properly(mock_tank: MockTank):
         up_start_time=90000,
         bleed_duration=36,
         up_driving_pressure=490.13,
+        up_final_stagnation_pressure=392.35,
         choke_pressure=300.0,
         up_duration=900
     )
@@ -104,6 +108,7 @@ def test_collections_in_array():
         up_start_time=40305,
         bleed_duration=1, 
         up_driving_pressure=1270.44,
+        up_final_stagnation_pressure=932.12,
         choke_pressure=1500.0,
         up_duration=600
     )
@@ -113,6 +118,7 @@ def test_collections_in_array():
         up_start_time=70000,
         bleed_duration=5,
         up_driving_pressure=753.43,
+        up_final_stagnation_pressure=452.12,
         choke_pressure=500.0,
         up_duration=700
     )
@@ -122,6 +128,7 @@ def test_collections_in_array():
         up_start_time=90000,
         bleed_duration=36,
         up_driving_pressure=490.13,
+        up_final_stagnation_pressure=305.51,
         choke_pressure=300.0,
         up_duration=900
     )
@@ -154,6 +161,7 @@ def test_collection_swap_tanks():
         up_start_time=40305,
         bleed_duration=1, 
         up_driving_pressure=1270.44,
+        up_final_stagnation_pressure=932.12,
         choke_pressure=1500.0,
         up_duration=600
     )
@@ -163,6 +171,7 @@ def test_collection_swap_tanks():
         up_start_time=70000,
         bleed_duration=5,
         up_driving_pressure=753.43,
+        up_final_stagnation_pressure=452.12,
         choke_pressure=500.0,
         up_duration=700
     )

@@ -21,7 +21,9 @@ class Collection:
     bleed_duration : int
         How long (ms) to bleed the lines before collecting.
     up_driving_pressure : float
-        Expected pressure (hPa) in the tank on ascent.
+        Expected pressure (hPa) in the manifold while sampling on ascent.
+    up_final_stagnation_pressure : float
+        Expected pressure (hPa) in the tank after sampling on ascent.
     choke_pressure : float
         The absolute maximum tank pressure (hPa) for choked flow to work on this sample.
     up_duration : int
@@ -35,6 +37,7 @@ class Collection:
         up_start_time: int,
         bleed_duration: int,
         up_driving_pressure: float,
+        up_final_stagnation_pressure: float,
         choke_pressure: float,
         up_duration: int,
         tank: Tank = None
@@ -44,6 +47,7 @@ class Collection:
         self.up_start_time = up_start_time
         self.bleed_duration = bleed_duration
         self.up_driving_pressure = up_driving_pressure
+        self.up_final_stagnation_pressure = up_final_stagnation_pressure
         self.p_choke = choke_pressure
         self.up_duration = up_duration
         self.tank = tank
