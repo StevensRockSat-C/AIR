@@ -13,7 +13,7 @@ from pi.valve import Valve
 class InitialPressureCheck(Process):
 
     def __init__(self):
-        self.log_pressures: LogPressures
+        self.log_pressures: LogPressures = None
         self.tanks: list[Tank] = []
         self.manifold_pressure: PressureSensor = None
         self.main_valve: Valve = None
@@ -47,7 +47,7 @@ class InitialPressureCheck(Process):
 
     def initialize(self) -> bool:
         Process.get_multiprint().pform("Initializing Initial Pressure Check.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
-        if not self.log_pressures:
+        if self.log_pressures is None:
             Process.get_multiprint().pform("LogPressures not set for Initial Pressure Check! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
             warn("LogPressures not set for Initial Pressure Check!")
             return False
@@ -108,7 +108,7 @@ class InitialPressureCheck(Process):
             if abs(delta_manifold_pressure) > 100:
                 # TODO: Log here
                 Process.set_plumbing_state(PlumbingState.MAIN_LINE_FAILURE)
-            elif new_manifold_pressure <= self.p_crit:
+            elif new_manifold_pressure > self.p_crit:
                 # TODO: Log here
                 Process.set_plumbing_state(PlumbingState.MAIN_LINE_FAILURE)
             else:
@@ -118,10 +118,10 @@ class InitialPressureCheck(Process):
             Process.get_multiprint().pform("Manifold pressure sensor is offline! Assuming the plumbing state is READY.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
             Process.set_plumbing_state(PlumbingState.READY)
 
-        if Process.plumbing_state == PlumbingState.READY:
-            number_of_not_ready_tanks = len(list(filter(lambda tank: tank.state != TankState.READY, self.tanks)))
-            if number_of_not_ready_tanks == len(self.tanks):
-                return
+        if Process.plumbing_state == PlumbingState.READY: #if everything is all good case
+            number_of_ready_tanks = len(list(filter(lambda tank: tank.state == TankState.READY, self.tanks)))
+            if number_of_ready_tanks == len(self.tanks):
+                return #all tanks marked ready, and plumbing state marked ready
 
         # At least one tank t UNSAFE OR at least one tank t READY?
         matching_tanks: list[Tank] = []
