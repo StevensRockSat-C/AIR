@@ -248,6 +248,13 @@ class MockPressureSensorStatic(PressureSensor):
     def pressure(self) -> float:
         """Simulate getting a single pressure reading."""
         return self._pressure_value
+    
+    @pressure.setter
+    def pressure(self, value):
+        """
+        Does nothing.
+        """
+        warn("You tried to set the pressure! There is something wrong with your implementation.")
 
     @property
     def triple_pressure(self) -> float:
@@ -255,3 +262,10 @@ class MockPressureSensorStatic(PressureSensor):
         time.sleep(0.010) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
                           # Simulate 2 sleeps for reading from the actual sensor
         return self._triple_pressure_value
+    
+    @triple_pressure.setter
+    def triple_pressure(self, value):
+        """
+        Does nothing.
+        """
+        warn("You tried to set the pressure! There is something wrong with your implementation.")
