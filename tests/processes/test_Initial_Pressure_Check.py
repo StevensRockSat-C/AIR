@@ -83,7 +83,7 @@ def test_initialize(setup_initial_pressure_check, initial_pressure_check, mock_m
 
     assert ("T+ " + str(Process.rtc.getTPlusMS()) + " ms\t" + "Initializing Initial Pressure Check.") in Process.multiprint.logs[Process.output_log.name]
 
-# TODO: Add tests for missing main valve and manifold pressure sensor
+# TODO: Add tests for missing main valve
 
 def test_all_good(setup_initial_pressure_check, initial_pressure_check: InitialPressureCheck):
     """Test when all tanks have good pressure."""
@@ -101,14 +101,12 @@ def test_all_good(setup_initial_pressure_check, initial_pressure_check: InitialP
     
     initial_pressure_check.run()
 
-    mp_logs = list(map(lambda elem: re.sub(r'\d{13}', '', elem), Process.multiprint.logs[Process.output_log.name]))
+    mp_logs = list(map(lambda elem: re.sub(r'\d{13}', '', elem), Process.multiprint.logs[Process.output_log.name]))  #remove time stamps for testing
 
     assert Process.get_plumbing_state() == PlumbingState.READY
     for tank in tanks:
         assert (tank.state == TankState.READY)  # Tanks should be marked ready
-        #assert f"T+ {Process.rtc.getTPlusMS()} ms\tPressure in Tank {tank.valve.name} is {tank.mprls.pressure}. All good." in Process.multiprint.logs[Process.output_log.name]
         assert f"T+  ms\tPressure in Tank {tank.valve.name} is {tank.mprls.pressure}. Marked it READY." in mp_logs
-
 
 def test_tanks_atmospheric(setup_initial_pressure_check, initial_pressure_check):
     """Test when tanks have atmospheric pressure (marked as UNSAFE)."""
@@ -125,17 +123,15 @@ def test_tanks_atmospheric(setup_initial_pressure_check, initial_pressure_check)
 
     initial_pressure_check.run()
 
-    mp_logs = list(map(lambda elem: re.sub(r'\d{13}', '', elem), Process.multiprint.logs[Process.output_log.name]))
+    mp_logs = list(map(lambda elem: re.sub(r'\d{13}', '', elem), Process.multiprint.logs[Process.output_log.name])) #remove time stamps for testing
 
     assert initial_pressure_check.plumbing_state == PlumbingState.READY
 
-    assert initial_pressure_check.tanks[0].state == TankState.UNSAFE #separately check if each tank is the correct state
+    assert initial_pressure_check.tanks[0].state == TankState.UNSAFE 
     assert initial_pressure_check.tanks[1].state == TankState.LAST_RESORT
 
     for tank in initial_pressure_check.tanks: #both tanks are still originally marked UNSAFE, so we can keep this.
-        #assert tank.state == TankState.UNSAFE # Tanks should be marked unsafe
         assert f"T+  ms\tPressure in Tank {tank.valve.name} is atmospheric ({tank.mprls.pressure} hPa). Marked it UNSAFE." in mp_logs
-
 
 def test_tanks_rocket_pressure(setup_initial_pressure_check, initial_pressure_check):
     """Test when tanks have atmospheric pressure (marked as UNSAFE)."""
@@ -210,14 +206,8 @@ def test_uses_triple_pressure(setup_initial_pressure_check, initial_pressure_che
     tanks = [MockTankWithDifferentPressures("A")]
     initial_pressure_check.set_tanks(tanks)
 
-    # file_pressure_sensor_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), )
     file_pressure_sensor = MPRLSFile("test_Initial_Pressure_Check_manifold_failing.csv")
-    print(file_pressure_sensor.data)
     initial_pressure_check.set_manifold_pressure_sensor(file_pressure_sensor)
-    
-    tanks_2 =  [MockTank("t1", "test_Initial_Pressure_Check_manifold_failing.csv"), MockTank("t2", "test_Initial_Pressure_Check_all_good.csv")]
-    print(tanks_2[0].mprls.data, tanks_2[1].mprls.data)
-
 
     initial_pressure_check.set_main_valve(MockValve(10, "mockValve"))
 
@@ -234,7 +224,7 @@ def test_uses_triple_pressure(setup_initial_pressure_check, initial_pressure_che
     assert initial_pressure_check.plumbing_state == PlumbingState.MAIN_LINE_FAILURE
 
     # Verify the log message uses triple_pressure value
-    assert f"T+  ms\tPressure in Tank {tanks[0].valve.name} is pressurized above atmospheric ({tanks[0].mprls.triple_pressure} hPa). Marked it UNSAFE." in mp_logs
+    assert f"T+  ms\tPressure in Tank {tanks[0].valve.name} is atmospheric ({tanks[0].mprls.triple_pressure} hPa). Marked it UNSAFE." in mp_logs
 
 def test_manifold_failing_one_LAST_RESORT(setup_initial_pressure_check, initial_pressure_check):
     tanks = [MockTank("A", "test_Initial_Pressure_Check_atmospheric.csv"), MockTank("B", "test_Initial_Pressure_Check_all_good.csv")]
@@ -250,8 +240,8 @@ def test_manifold_failing_one_LAST_RESORT(setup_initial_pressure_check, initial_
     initial_pressure_check.run()
     
     assert initial_pressure_check.plumbing_state == PlumbingState.MAIN_LINE_FAILURE
-    assert initial_pressure_check.tanks[0].state == TankState.LAST_RESORT #since values in test_Initial_Pressure_Check_all_good.csv are: 100, 101.1, 101.1, 101.1, 101.1
-    assert initial_pressure_check.tanks[0] == tanks[1] #check that the right tank was assigned LAST_RESORT
+    assert initial_pressure_check.tanks[1].state == TankState.LAST_RESORT #since values in test_Initial_Pressure_Check_all_good.csv are: 100, 101.1, 101.1, 101.1, 101.1
+    assert initial_pressure_check.tanks[0].state == TankState.UNSAFE #since values in test_Initial_Pressure_Check_atmospheric.csv are: 1000.1, 1000.1, ...
 
 def test_manifold_failing_no_LAST_RESORT(setup_initial_pressure_check, initial_pressure_check):
     tanks = [MockTank("A", "test_Initial_Pressure_Check_rocket_pressure.csv"), MockTank("B", "test_Initial_Pressure_Check_rocket_pressure.csv")]
@@ -267,8 +257,10 @@ def test_manifold_failing_no_LAST_RESORT(setup_initial_pressure_check, initial_p
     initial_pressure_check.run()
 
     assert initial_pressure_check.plumbing_state == PlumbingState.MAIN_LINE_FAILURE
-    assert initial_pressure_check.tanks[0].state == TankState.LAST_RESORT #since values in test_Initial_Pressure_Check_all_good.csv are: 100, 101.1, 101.1, 101.1, 101.1
-    assert initial_pressure_check.tanks[0] == tanks[1] #check that the right tank was assigned LAST_RESORT
+    assert initial_pressure_check.tanks[0].state == TankState.CRITICAL
+    assert initial_pressure_check.tanks[1].state == TankState.CRITICAL
+
+    #TODO: ADD LOG HERE
 
 def test_manifold_unconnected_all_tanks_good(setup_initial_pressure_check, initial_pressure_check):
     tanks = [MockTank("A", "test_Initial_Pressure_Check_all_good.csv"), MockTank("B", "test_Initial_Pressure_Check_all_good.csv"), MockTank("C", "test_Initial_Pressure_Check_all_good.csv")]
@@ -283,10 +275,12 @@ def test_manifold_unconnected_all_tanks_good(setup_initial_pressure_check, initi
 
     initial_pressure_check.run()
 
+    mp_logs = list(map(lambda elem: re.sub(r'\d{13}', '', elem), Process.multiprint.logs[Process.output_log.name])) #remove timestamps for testing
+
     assert initial_pressure_check.plumbing_state == PlumbingState.READY
     for tank in tanks:
         assert tank.state == TankState.READY 
-    assert (f"T+ {Process.rtc.getTPlusMS()} ms\tManifold Pressure Sensor OFFLINE.") in Process.multiprint.logs[Process.output_log.name]
+    assert (f"T+  ms\tManifold pressure sensor is offline! Assuming the plumbing state is READY.") in mp_logs
 
 def test_manifold_unconnected_one_tank_all_good(setup_initial_pressure_check, initial_pressure_check):
     tanks = [MockTank("A", "test_Initial_Pressure_Check_atmospheric.csv"), MockTank("B", "test_Initial_Pressure_Check_atmospheric.csv"), MockTank("C", "test_Initial_Pressure_Check_all_good.csv")]
@@ -301,9 +295,14 @@ def test_manifold_unconnected_one_tank_all_good(setup_initial_pressure_check, in
 
     initial_pressure_check.run()
 
+    mp_logs = list(map(lambda elem: re.sub(r'\d{13}', '', elem), Process.multiprint.logs[Process.output_log.name])) #remove timestamps for testing
+
     assert initial_pressure_check.plumbing_state == PlumbingState.READY
-    assert initial_pressure_check.tanks[0].state == TankState.READY 
-    assert (f"T+ {Process.rtc.getTPlusMS()} ms\tManifold Pressure Sensor OFFLINE.") in Process.multiprint.logs[Process.output_log.name]
+    assert initial_pressure_check.tanks[0].state == TankState.UNSAFE 
+    assert initial_pressure_check.tanks[1].state == TankState.UNSAFE 
+    assert initial_pressure_check.tanks[2].state == TankState.LAST_RESORT
+
+    assert (f"T+  ms\tManifold pressure sensor is offline! Assuming the plumbing state is READY.") in mp_logs
 
 def test_manifold_unconnected_no_tanks_all_good(setup_initial_pressure_check, initial_pressure_check):
     tanks = [MockTank("A", "test_Initial_Pressure_Check_atmospheric.csv"), MockTank("B", "test_Initial_Pressure_Check_atmospheric.csv"), MockTank("C", "test_Initial_Pressure_Check_tanks_cannot_conneect.csv")]
@@ -318,11 +317,15 @@ def test_manifold_unconnected_no_tanks_all_good(setup_initial_pressure_check, in
 
     initial_pressure_check.run()
 
+    mp_logs = list(map(lambda elem: re.sub(r'\d{13}', '', elem), Process.multiprint.logs[Process.output_log.name])) #remove timestamps for testing
+
     assert initial_pressure_check.plumbing_state == PlumbingState.READY
     assert initial_pressure_check.tanks[0].state == TankState.LAST_RESORT
-    assert (f"T+ {Process.rtc.getTPlusMS()} ms\tManifold Pressure Sensor OFFLINE.") in Process.multiprint.logs[Process.output_log.name]
+    assert initial_pressure_check.tanks[1].state == TankState.UNSAFE
+    assert initial_pressure_check.tanks[2].state == TankState.UNREACHABLE
+    assert (f"T+  ms\tManifold pressure sensor is offline! Assuming the plumbing state is READY.") in mp_logs
 
-def test_manifold_unconnected_no_tanks_all_good(setup_initial_pressure_check, initial_pressure_check):
+def test_manifold_critical_all_tanks_good(setup_initial_pressure_check, initial_pressure_check):
     tanks = [MockTank("A", "test_Initial_Pressure_Check_all_good.csv"), MockTank("B", "test_Initial_Pressure_Check_all_good.csv"), MockTank("C", "test_Initial_Pressure_Check_all_good.csv")]
     initial_pressure_check.set_tanks(tanks)
 
@@ -337,3 +340,4 @@ def test_manifold_unconnected_no_tanks_all_good(setup_initial_pressure_check, in
 
     assert initial_pressure_check.plumbing_state == PlumbingState.MAIN_LINE_FAILURE
     assert initial_pressure_check.tanks[0].state == TankState.LAST_RESORT
+
