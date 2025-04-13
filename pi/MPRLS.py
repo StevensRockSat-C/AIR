@@ -157,7 +157,7 @@ class NovaPressureSensor(PressureSensor):
         self.channel = channel
         self.ready = False
         for i in range(3):
-            if (self.is_pressure_valid(self._read_pressure_digital())):
+            if (self.is_pressure_valid(self._convert_pressure_hpa(self._read_pressure_digital()))):
                 self.ready = True
                 break
             time.sleep(0.01) # Wait 10 ms to see if i2c works again
@@ -172,10 +172,16 @@ class NovaPressureSensor(PressureSensor):
             Pressure in digital counts. -1 if there's an error.
         """
         try:
-            incoming_buffer = bytearray(2)
-            self.channel.readfrom_into(self.I2C_ADDRESS, incoming_buffer)
-            raw_pressure = (incoming_buffer[0] << 8) | incoming_buffer[1]
-            return raw_pressure
+            if self.channel.try_lock():
+                try:
+                    incoming_buffer = bytearray(2)
+                    self.channel.readfrom_into(self.I2C_ADDRESS, incoming_buffer)
+                    raw_pressure = (incoming_buffer[0] << 8) | incoming_buffer[1]
+                    return raw_pressure
+                finally:
+                    self.channel.unlock()
+            else:
+                return -1
         except Exception:
             return -1
     
