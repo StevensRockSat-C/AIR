@@ -41,6 +41,65 @@ class PressureSensor(ABC):
         """
         pass
 
+class PressureTemperatureSensor(PressureSensor):
+    """Pressure sensors that can also read temperature"""
+
+    @property
+    @abstractmethod
+    def temperature(self) -> float:
+        """
+        Get the temperature in Celcius.
+
+        Returns
+        -------
+        float
+            Temperature, in C. -1 if there's an error.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def triple_temperature(self) -> float:
+        """
+        Sample the temperature three times for a median.
+
+        Returns
+        -------
+        float
+            Median temperature, in C. -1 if all 3 reads failed.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def pressure_and_temp(self) -> tuple[float, float]:
+        """
+        Get the pressure and temperature in one read.
+
+        Returns
+        -------
+        float
+            Pressure, in hPa. -1 if there's an error.
+        float
+            Temperature, in C. -1 if there's an error.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def triple_pressure_and_temp(self) -> tuple[float, float]:
+        """
+        Get the pressure and temperature in three reads.
+
+        Returns
+        -------
+        float
+            Pressure, in hPa. -1 if all 3 reads failed.
+        float
+            Temperature, in C. -1 if all 3 reads failed.
+        """
+        pass
+
 class MPRLSWrappedSensor(PressureSensor):
     """Handles real MPRLS hardware by wrapping the base MPRLS to enact soft error handling."""
     
