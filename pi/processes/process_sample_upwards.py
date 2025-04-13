@@ -15,11 +15,11 @@ class SampleUpwards(Process):
 
     def __init__(self):
         self.collections: list[Collection] = []
-        self.log_pressures: LogPressures
-        self.main_valve: Valve
-        self.dynamic_valve: Valve
-        self.static_valve: Valve
-        self.manifold_pressure_sensor: PressureSensor
+        self.log_pressures: LogPressures = None
+        self.main_valve: Valve = None
+        self.dynamic_valve: Valve = None
+        self.static_valve: Valve = None
+        self.manifold_pressure_sensor: PressureSensor = None
 
         self.t_efficacy: float = 2000 # (milliseconds) Time for which to open the dynamic and main valves to measure driving pressure
         self.t_small: float = 100 # (milliseconds) The amount of time to 'test' the line to see if new sample is truly coming in, or if it was just stagnant pressure from the manifold
@@ -46,9 +46,9 @@ class SampleUpwards(Process):
     def run(self) -> bool:
         print(type(Process.get_multiprint()))
         if not Process.is_ready():
-            warn("Process is not ready for Sample Upwards!")
+            warn("Process is not ready for SampleUpwards!")
             if Process.can_log():
-                Process.get_multiprint().pform("Process is not ready for Sample Upwards!", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+                Process.get_multiprint().pform("Process is not ready for SampleUpwards!", Process.get_rtc().getTPlusMS(), Process.get_output_log())
             return False
         if not self.initialize():
             return False
@@ -59,28 +59,28 @@ class SampleUpwards(Process):
     def initialize(self) -> bool:
         Process.get_multiprint().pform("Initializing Sample Upwards.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
         if not self.log_pressures:
-            Process.get_multiprint().pform("LogPressures not set for Sample Upwards! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
-            warn("LogPressures not set for Sample Upwards!")
+            Process.get_multiprint().pform("LogPressures not set for SampleUpwards! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+            warn("LogPressures not set for SampleUpwards!")
             return False
         if not self.collections:
-            Process.get_multiprint().pform("Collections not set for Sample Upwards! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
-            warn("Collections not set for Sample Upwards!")
+            Process.get_multiprint().pform("Collections not set for SampleUpwards! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+            warn("Collections not set for SampleUpwards!")
             return False
         if not self.main_valve:
-            Process.get_multiprint().pform("Main Valve not set for Sample Upwards! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
-            warn("Main Valve not set for Sample Upwards!")
+            Process.get_multiprint().pform("Main Valve not set for SampleUpwards! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+            warn("Main Valve not set for SampleUpwards!")
             return False
         if not self.dynamic_valve:
-            Process.get_multiprint().pform("Dynamic Valve not set for Sample Upwards! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
-            warn("Dynamic Valve not set for Sample Upwards!")
+            Process.get_multiprint().pform("Dynamic Valve not set for SampleUpwards! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+            warn("Dynamic Valve not set for SampleUpwards!")
             return False
         if not self.static_valve:
-            Process.get_multiprint().pform("Static Valve not set for Sample Upwards! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
-            warn("Static Valve not set for Sample Upwards!")
+            Process.get_multiprint().pform("Static Valve not set for SampleUpwards! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+            warn("Static Valve not set for SampleUpwards!")
             return False
         if not self.manifold_pressure_sensor:
-            Process.get_multiprint().pform("Manifold Pressure Sensor not set for Sample Upwards! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
-            warn("Manifold Pressure Sensor not set for Sample Upwards!")
+            Process.get_multiprint().pform("Manifold Pressure Sensor not set for SampleUpwards! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+            warn("Manifold Pressure Sensor not set for SampleUpwards!")
             return False
         return True
 
