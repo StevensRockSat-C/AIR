@@ -6,9 +6,9 @@ from enum import Enum
 from warnings import warn
 import re
 
-
+from pathlib import Path
 import sys
-sys.path.append('../../')
+sys.path.append(str(Path(__file__).parent.parent.parent.absolute()))
 
 from pi.processes.process_initial_pressure_check import InitialPressureCheck, PlumbingState
 from pi.RTC import RTCFile
