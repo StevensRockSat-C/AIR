@@ -118,10 +118,10 @@ class InitialPressureCheck(Process):
             Process.get_multiprint().pform("Manifold pressure sensor is offline! Assuming the plumbing state is READY.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
             Process.set_plumbing_state(PlumbingState.READY)
 
-        if Process.plumbing_state == PlumbingState.READY: #if everything is all good case
+        if Process.plumbing_state == PlumbingState.READY: # Came from "Process.set_plumbing_state READY"
             number_of_ready_tanks = len(list(filter(lambda tank: tank.state == TankState.READY, self.tanks)))
-            if number_of_ready_tanks == len(self.tanks):
-                return #all tanks marked ready, and plumbing state marked ready
+            if number_of_ready_tanks >= 1: # At least one tank t READY?
+                return # At least one tank marked ready, and plumbing state marked ready
 
         # At least one tank t UNSAFE OR at least one tank t READY?
         matching_tanks: list[Tank] = []
