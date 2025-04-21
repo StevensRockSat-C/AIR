@@ -11,16 +11,10 @@ from pi.processes.process_initial_pressure_check import InitialPressureCheck
 from pi.RTC import RTCFile
 from pi.MPRLS import MPRLSFile, MockPressureSensorStatic
 from tests.test_Tank import MockValve
+from tests.processes.test_Process import MockTank
 from pi.multiprint import MockMultiPrinter
 
 from pi.processes.process import Process
-
-class MockTank:
-    """Mock Tank class to simulate tanks with valves and sensors."""
-    def __init__(self, name, filepath: str):
-        self.valve = MockValve(10, name)
-        self.mprls = MPRLSFile(os.path.join(os.path.dirname(os.path.abspath(__file__)), filepath))
-        self.dead = False
 
 @pytest.fixture
 def mock_multiprint(monkeypatch):
