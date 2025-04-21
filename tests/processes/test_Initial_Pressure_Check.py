@@ -72,10 +72,15 @@ def test_initialize(setup_initial_pressure_check, initial_pressure_check, mock_m
 
     assert ("T+ " + str(Process.rtc.getTPlusMS()) + " ms\t" + "Initializing Initial Pressure Check.") in Process.multiprint.logs[Process.output_log.name]
 
+# TODO: Add tests for missing main valve and manifold pressure sensor
+
 def test_all_good(setup_initial_pressure_check, initial_pressure_check: InitialPressureCheck):
     """Test when all tanks have good pressure."""
     tanks = [MockTank("A", "test_Initial_Pressure_Check_all_good.csv"), MockTank("B", "test_Initial_Pressure_Check_all_good.csv"), MockTank("C", "test_Initial_Pressure_Check_all_good.csv")]
     initial_pressure_check.set_tanks(tanks)
+
+    initial_pressure_check.set_manifold_pressure_sensor(MockPressureSensorStatic(400))
+    initial_pressure_check.set_main_valve(MockValve(10, "bruh"))
     
     initial_pressure_check.run()
 
