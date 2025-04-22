@@ -76,6 +76,7 @@ class MockMultiPrinter(MultiPrinterAbstract):
         """
         if f.name not in self.logs:
             self.logs[f.name] = []
+        #print(message)
         self.logs[f.name].append(message)
 
     def w(self, message, f: _TemporaryFileWrapper):

@@ -1,6 +1,6 @@
 import warnings
-import pytest
 import sys
+import pytest
 sys.path.append('../')
 
 from pi.tank import Tank, TankState

@@ -12,10 +12,10 @@ from pi.processes.process_sample_upwards import SampleUpwards
 from pi.processes.process_log_pressures import LogPressures
 
 from pi.RTC import RTCFile
-from pi.MPRLS import MockPressureSensorStatic
+from pi.MPRLS import MockPressureSensorStatic, MPRLSFile
 from pi.multiprint import MockMultiPrinter
 from pi.collection import Collection
-from pi.tank import Tank
+from pi.tank import Tank, TankState
 
 from tests.test_Tank import MockValve
 
@@ -316,3 +316,54 @@ def test_cleanup_no_error(setup_process, sample_upwards_instance: SampleUpwards)
     """
     # Just ensure that calling cleanup() does not raise an exception.
     sample_upwards_instance.cleanup()
+
+
+def test_uses_triple_pressure(setup_process, sample_upwards_instance: SampleUpwards):
+    """
+    If everything is set, initialize() should return True.
+    """
+    logPre = LogPressures()
+    sample_upwards_instance.set_log_pressures(logPre)
+
+    valve1 = MockValve(1, "A")
+    pr_sensor = MPRLSFile("test_sample_upwards_triple.csv")
+    tank = Tank(valve1, pr_sensor)
+    tank.state = TankState.READY
+
+    collection_1 = Collection(
+        num=1,
+        up_start_time=40305,
+        bleed_duration=1, 
+        up_driving_pressure=1270.44,
+        up_final_stagnation_pressure=1600.5,
+        choke_pressure=1500.0,
+        up_duration=600,
+        tank=tank
+    )
+    collections = [collection_1]
+    sample_upwards_instance.set_collections(collections)
+
+    main_valve = MockValve(18, "Main")
+    sample_upwards_instance.set_main_valve(main_valve)
+
+    dynamic_valve = MockValve(17, "Dynamic")
+    sample_upwards_instance.set_dynamic_valve(dynamic_valve)
+
+    static_valve = MockValve(27, "Static")
+    sample_upwards_instance.set_static_valve(static_valve)
+
+    manifold_pressure_sensor = MockPressureSensorStatic(100)
+    sample_upwards_instance.set_manifold_pressure_sensor(manifold_pressure_sensor)
+
+    result = sample_upwards_instance.run()
+
+    assert sample_upwards_instance.log_pressures == logPre
+    assert sample_upwards_instance.collections == collections
+    assert sample_upwards_instance.main_valve == main_valve
+    assert sample_upwards_instance.dynamic_valve == dynamic_valve
+    assert sample_upwards_instance.static_valve == static_valve
+    assert sample_upwards_instance.manifold_pressure_sensor == manifold_pressure_sensor
+
+    assert result is True
+
+    assert ("T+ " + str(Process.rtc.getTPlusMS()) + " ms\tPerforming Sample Upwards.") in Process.multiprint.logs[Process.output_log.name]

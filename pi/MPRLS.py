@@ -80,6 +80,7 @@ class MPRLSWrappedSensor(PressureSensor):
             self.cant_connect = True
     
     def _get_pressure(self) -> float:
+        time.sleep(0.002)
         if self.cant_connect:
             return -1
         try:
@@ -268,7 +269,7 @@ class MPRLSFile(PressureSensor):
         try:
             value = self.data[self.index]
         except IndexError:
-            print("MPRLSFile get_pressure: reached EOF")
+            #print("MPRLSFile get_pressure: reached EOF")
             return -1
         self.index = self.index + 1
         return value

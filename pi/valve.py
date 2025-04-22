@@ -90,3 +90,17 @@ class Valve:
             valve.close()  # Ensure valves are closed
         GPIO.cleanup()
         cls._instances.clear()
+
+
+class MockValve(Valve):
+    """Mock Valve class to fully isolate Tank tests."""
+    def __init__(self, pin, name):
+        self.pin = pin
+        self.name = name
+        self.state = "CLOSED"
+
+    def open(self):
+        self.state = "OPEN"
+
+    def close(self):
+        self.state = "CLOSED"

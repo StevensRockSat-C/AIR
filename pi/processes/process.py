@@ -10,8 +10,8 @@ from enum import Enum
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from pi.multiprint import MultiPrinter, MultiPrinterAbstract
-from pi.RTC import RTC
+from pi.multiprint import MultiPrinter, MultiPrinterAbstract, MockMultiPrinter
+from pi.RTC import RTC, RTCFile
 
 class PlumbingState(Enum):
     """
@@ -73,11 +73,11 @@ class Process(ABC):
 
     @classmethod
     def is_ready(cls):
-        if not isinstance(cls.multiprint, MultiPrinterAbstract):
+        if not isinstance(cls.multiprint, MockMultiPrinter):
             warn("MultiPrinter not set for Process! " + str(type(cls.multiprint)))
         if not isinstance(cls.output_log, (TextIOWrapper, _TemporaryFileWrapper)):
             warn("Output log not set for Process! " + str(type(cls.output_log)))
-        if not isinstance(cls.rtc, RTC):
+        if not isinstance(cls.rtc, RTCFile):
             warn("RTC not set for Process! " + str(type(cls.rtc)))
             cls.multiprint.p("RTC not set for Process! Time: " + str(round(time.time()*1000)) + " ms:", cls.output_log) # TODO: Use refactor timeMS() into Utils class
         if not isinstance(cls.output_pressures, (TextIOWrapper, _TemporaryFileWrapper)):
