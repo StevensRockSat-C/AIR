@@ -49,12 +49,13 @@ DEFAULT_BOOT_TIME = 35000   # The estimated time to boot and run the beginnings 
 
 #GPIO_MODE = GPIO.BCM
 
-VALVE_MAIN_PIN = 27         # Parker 11/25/26 Main Valve control pin
-VALVE_DYNAMIC_PIN = 26
-VALVE_STATIC_PIN = 25
-VALVE_1_PIN = 10            # First tank control pin
-VALVE_2_PIN = 9             # Second tank control pin
-VALVE_3_PIN = 11            # Third tank control pin    not needed due to only having two tanks
+VALVE_MAIN_PIN = 27        # Parker 11/25/26 Main Valve control pin
+VALVE_DYNAMIC_PIN = 10
+VALVE_STATIC_PIN = 22
+VALVE_1_PIN = 9            # First tank control pin
+VALVE_2_PIN = 17           # Second tank control pin
+#VALVE_3_PIN =             # Third tank control pin    not needed due to only having two tanks
+#VALVE_MANIFOLD = 27            
 GSWITCH_PIN = 23            # G-switch input pin
 
 # Logs initialization
@@ -80,67 +81,69 @@ except:
 # Valve initialization
 valve1 = Valve(VALVE_1_PIN, "A")
 valve2 = Valve(VALVE_2_PIN, "B")
-valve3 = Valve(VALVE_3_PIN, "C")
+#valve_manifold = Valve(VALVE_3_PIN, "C")
 valve_dynamic = Valve(VALVE_DYNAMIC_PIN, "Dynamic_valve")
-valve_static = MockValve(VALVE_STATIC_PIN, "Static_valve")
+valve_static = Valve(VALVE_STATIC_PIN, "Static_valve")
 valve_main = Valve(VALVE_MAIN_PIN, "Main_valve")
 
+
 # Pressure sensor initialization
-pr_sensor_t1 = NovaPressureSensor(0x01) #what should the channel be?
-pr_sensor_t2 = NovaPressureSensor(0x02)
-pr_sensor_t3 = NovaPressureSensor(0x03)
+pr_sensor_t1 = NovaPressureSensor() #what should the channel be?
+pr_sensor_t2 = NovaPressureSensor()
+#pr_sensor_t3 = NovaPressureSensor()
 pr_sensor_canister = MockPressureSensorStatic(1.4)
-pr_sensor_manifold = NovaPressureSensor(0x04)
+pr_sensor_manifold = NovaPressureSensor()
 
-pr_sensor_t1.I2C_ADDRESS = multiplex[0]
-pr_sensor_t2.I2C_ADDRESS = multiplex[1]
-pr_sensor_t3.I2C_ADDRESS = multiplex[2]
-pr_sensor_manifold.I2C_ADDRESS = multiplex[3]
 
-log_pres.set_pressure_sensors([pr_sensor_t1, pr_sensor_t2, pr_sensor_t3])
+pr_sensor_t1.I2C_ADDRESS = multiplex[3]
+pr_sensor_t2.I2C_ADDRESS = multiplex[0]
+#pr_sensor_t3.I2C_ADDRESS = multiplex[2]
+pr_sensor_manifold.I2C_ADDRESS = multiplex[1]
+pr_sensor_canister.I2C_ADDRESS = multiplex[2]
+
+
+log_pres.set_pressure_sensors([pr_sensor_t1, pr_sensor_t2])
 
 
 # Tank initialization
 sample_tank_1 = Tank(valve1, pr_sensor_t1)
 sample_tank_2 = Tank(valve2, pr_sensor_t2)
-sample_tank_3 = Tank(valve3, pr_sensor_t3)
-tanks = [sample_tank_1, sample_tank_2, sample_tank_3]
+#sample_tank_3 = Tank(valve3, pr_sensor_t3)
+tanks = [sample_tank_1, sample_tank_2]
 
 # Collection initialization
 collection_1 = Collection(  num = 1,        #this is a string in the class diagram
-                            up_start_time = 40305, #MS
-                            #up_start_time = 20,
+                            up_start_time = 1700, #MS
                             bleed_duration = 5,
                             up_driving_pressure = 1270.44,
                             up_final_stagnation_pressure = 1300,
                             choke_pressure = 1.89,
-                            #up_duration = 156.29,
-                            up_duration = 10,
+                            up_duration = 156.29,
+                            #up_duration = 10,
                             #tank = sample_tank_1 
                         )
 
-collection_2 = Collection( num = 2,         #this is a string in the class diagram
-                            up_start_time = 19000,
-                            #up_start_time = 50,
-                            bleed_duration = 5,
-                            up_driving_pressure = 1270.44,
-                            up_final_stagnation_pressure = 1300,
-                            choke_pressure = 2.23,
-                            up_duration = 170.57,
-                            #tank = sample_tank_2 
-                        )
+# collection_2 = Collection( num = 2,         #this is a string in the class diagram
+#                             up_start_time = 19000,
+#                             bleed_duration = 5,
+#                             up_driving_pressure = 1270.44,
+#                             up_final_stagnation_pressure = 1300,
+#                             choke_pressure = 2.23,
+#                             up_duration = 170.57,
+#                             #tank = sample_tank_2 
+#                         )
     
-collection_3 = Collection(  num = 3,         #this is a string in the class diagram
-                            up_start_time = 21000,
-                            bleed_duration = 5,
-                            up_driving_pressure = 1270.44,
-                            up_final_stagnation_pressure = 1300,
-                            choke_pressure = 1.93,
-                            up_duration = 175.27,
-                            #tank = sample_tank_3 
-                        )
+# collection_3 = Collection(  num = 3,         #this is a string in the class diagram
+#                             up_start_time = 21000,
+#                             bleed_duration = 5,
+#                             up_driving_pressure = 1270.44,
+#                             up_final_stagnation_pressure = 1300,
+#                             choke_pressure = 1.93,
+#                             up_duration = 175.27,
+#                             #tank = sample_tank_3 
+#                         )
 
-collections = [collection_1, collection_2, collection_3]
+collections = [collection_1]
 
 
 # Setup process
