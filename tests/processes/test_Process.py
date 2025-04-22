@@ -73,11 +73,14 @@ def test_process_initialization():
     rtc = RTCFile(123456)
     log = tempfile.NamedTemporaryFile(mode='w+', suffix=".txt", delete=True)
     pressures = tempfile.NamedTemporaryFile(mode='w+', suffix=".txt", delete=True)
+    state = PlumbingState.READY
 
     Process.multiprint = multiprint
     Process.rtc = rtc
     Process.output_log = log
     Process.output_pressures = pressures
+    Process.plumbing_state = state
+
 
     assert Process.multiprint == multiprint
     assert Process.rtc == rtc
