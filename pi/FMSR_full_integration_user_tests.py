@@ -25,6 +25,8 @@ import os
 
 from pathlib import Path
 import adafruit_tca9548a
+from adafruit_extended_bus import ExtendedI2C as I2C
+
 
 sys.path.append(str(Path(__file__).parent.parent.absolute()))
 
@@ -75,7 +77,8 @@ try:
     multiplex = adafruit_tca9548a.TCA9548A(i2c)
     
 except:
-    mprint.p("COULD NOT CONNECT TO MULTIPLEXER!! Time: " + str(timeMS()) + " ms", output_log)
+   # mprint.p("COULD NOT CONNECT TO MULTIPLEXER!! Time: " + str(timeMS()) + " ms", output_log)
+   print("uh oh")
 
 
 # Valve initialization
@@ -88,18 +91,11 @@ valve_main = Valve(VALVE_MAIN_PIN, "Main_valve")
 
 
 # Pressure sensor initialization
-pr_sensor_t1 = NovaPressureSensor() #what should the channel be?
-pr_sensor_t2 = NovaPressureSensor()
+pr_sensor_t1 = NovaPressureSensor(multiplex[3]) #what should the channel be?
+pr_sensor_t2 = NovaPressureSensor(multiplex[2])
 #pr_sensor_t3 = NovaPressureSensor()
 pr_sensor_canister = MockPressureSensorStatic(1.4)
-pr_sensor_manifold = NovaPressureSensor()
-
-
-pr_sensor_t1.I2C_ADDRESS = multiplex[3]
-pr_sensor_t2.I2C_ADDRESS = multiplex[0]
-#pr_sensor_t3.I2C_ADDRESS = multiplex[2]
-pr_sensor_manifold.I2C_ADDRESS = multiplex[1]
-pr_sensor_canister.I2C_ADDRESS = multiplex[2]
+pr_sensor_manifold = NovaPressureSensor(multiplex[1])
 
 
 log_pres.set_pressure_sensors([pr_sensor_t1, pr_sensor_t2])
