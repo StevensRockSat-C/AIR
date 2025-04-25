@@ -170,13 +170,13 @@ class SampleUpwards(Process):
 
         self.static_valve.close() # Close VStatic
         Process.get_multiprint().pform(f"Closed Static Valve", 
-                                            Process.get_rtc().getTPlusMS(), Process.get_output_log)
+                                            Process.get_rtc().getTPlusMS(), Process.get_output_log())
         
         # Take reference tankx and manifold pressure
         pre_sample_tank_pressure: float = c.tank.mprls.triple_pressure
         pre_sample_manifold_pressure = self.manifold_pressure_sensor.triple_pressure
         Process.get_multiprint().pform(f"Post-bleed pressures: Tank {pre_sample_tank_pressure} hPa, Manifold {pre_sample_manifold_pressure} hPa", 
-                                            Process.get_rtc().getTPlusMS(), Process.get_output_log)
+                                            Process.get_rtc().getTPlusMS(), Process.get_output_log())
         
         ### SAMPLE
         while c.sampled_count < 3: # Careful, Icarus...
@@ -192,7 +192,7 @@ class SampleUpwards(Process):
                                         Process.get_rtc().getTPlusMS(), Process.get_output_log())
             
             sample_start_time = Process.get_rtc().getTPlusMS()
-            while Process.get_rtc().getTPlus() < (sample_start_time + c.up_duration): #tc time passed?
+            while Process.get_rtc().getTPlusMS() < (sample_start_time + c.up_duration): #tc time passed?
                 self.log_pressures.run()
 
             # Close VDynamic, Vmain & Vtankx
