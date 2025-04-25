@@ -41,8 +41,8 @@ class PressureSensor(ABC):
         """
         pass
 
-class PressureTemperatureSensor(PressureSensor):
-    """Pressure sensors that can also read temperature"""
+class TemperatureSensor(ABC):
+    """Temperature sensors"""
 
     @property
     @abstractmethod
@@ -69,6 +69,9 @@ class PressureTemperatureSensor(PressureSensor):
             Median temperature, in C. -1 if all 3 reads failed.
         """
         pass
+
+class PressureTemperatureSensor(PressureSensor, TemperatureSensor):
+    """Pressure sensors that can also read temperature"""
 
     @property
     @abstractmethod
