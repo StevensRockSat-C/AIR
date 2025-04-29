@@ -13,8 +13,9 @@ except ImportError:
 class PressureSensor(ABC):
     """Abstract base class for pressure sensors."""
     
+    @property
     @abstractmethod
-    def _get_pressure(self) -> float:
+    def pressure(self) -> float:
         """
         Get the pressure in hPa.
 
@@ -26,8 +27,9 @@ class PressureSensor(ABC):
         """
         pass
     
+    @property
     @abstractmethod
-    def _get_triple_pressure(self) -> float:
+    def triple_pressure(self) -> float:
         """
         Sample the pressure three times for a median.
 
@@ -38,26 +40,6 @@ class PressureSensor(ABC):
 
         """
         pass
-    
-    def _set_pressure(self, value):
-        pass
-
-    def _del_pressure(self):
-        pass
-    
-    pressure = property(
-        fget=_get_pressure,
-        fset=_set_pressure,
-        fdel=_del_pressure,
-        doc="The pressure of the Pressure Sensor or -1 if it cannot be accessed"
-    )
-    
-    triple_pressure = property(
-        fget=_get_triple_pressure,
-        fset=_set_pressure,
-        fdel=_del_pressure,
-        doc="The 3-sample median pressure of the Pressure Sensor or -1 if it cannot be accessed"
-    )
 
 class MPRLSWrappedSensor(PressureSensor):
     """Handles real MPRLS hardware by wrapping the base MPRLS to enact soft error handling."""
@@ -79,7 +61,8 @@ class MPRLSWrappedSensor(PressureSensor):
         except:
             self.cant_connect = True
     
-    def _get_pressure(self) -> float:
+    @property
+    def pressure(self) -> float:
         if self.cant_connect:
             return -1
         try:
@@ -87,8 +70,8 @@ class MPRLSWrappedSensor(PressureSensor):
         except Exception:
             return -1
     
-    
-    def _get_triple_pressure(self) -> float:
+    @property
+    def triple_pressure(self) -> float:
         if self.cant_connect:
             return -1
         pressures = []
@@ -100,25 +83,6 @@ class MPRLSWrappedSensor(PressureSensor):
             if i < 2: time.sleep(0.005) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
         return median(pressures) if pressures else -1
     
-    def _set_pressure(self, value):
-        pass
-
-    def _del_pressure(self):
-        pass
-    
-    pressure = property(
-        fget=_get_pressure,
-        fset=_set_pressure,
-        fdel=_del_pressure,
-        doc="The pressure of the MPRLS or -1 if it cannot be accessed"
-    )
-    
-    triple_pressure = property(
-        fget=_get_triple_pressure,
-        fset=_set_pressure,
-        fdel=_del_pressure,
-        doc="The 3-sample median pressure of the MPRLS or -1 if it cannot be accessed"
-    )
 
 class NovaPressureSensor(PressureSensor):
     """Implementation of the NovaSensor NPI-19-I2C pressure sensor (30 psi absolute pressure)."""
@@ -192,7 +156,8 @@ class NovaPressureSensor(PressureSensor):
         pressure_psi = pressure_hpa / self.PSI_TO_HPA
         return (pressure_psi > self.PSI_MIN and pressure_psi <= self.PSI_MAX)
     
-    def _get_pressure(self) -> float:
+    @property
+    def pressure(self) -> float:
         """
         Get the pressure in hPa.
 
@@ -208,7 +173,8 @@ class NovaPressureSensor(PressureSensor):
         if (self.is_pressure_valid(hpa_pressure)): return hpa_pressure
         return -1
     
-    def _get_triple_pressure(self) -> float:
+    @property
+    def triple_pressure(self) -> float:
         """
         Sample the pressure three times for a median.
 
@@ -220,29 +186,9 @@ class NovaPressureSensor(PressureSensor):
         """
         pressures = []
         for i in range(3):
-            pressures.append(self._get_pressure())
+            pressures.append(self.pressure)
             if i < 2: time.sleep(0.001)  # On the Nova Sensor, we can safely read at 1 kHz. Tested in lab 2/12/25
         return median([p for p in pressures if p != -1]) if max(pressures) != -1 else -1
-    
-    def _set_pressure(self, value):
-        pass
-
-    def _del_pressure(self):
-        pass
-    
-    pressure = property(
-        fget=_get_pressure,
-        fset=_set_pressure,
-        fdel=_del_pressure,
-        doc="The pressure of the Nova Pressure Sensor or -1 if it cannot be accessed"
-    )
-    
-    triple_pressure = property(
-        fget=_get_triple_pressure,
-        fset=_set_pressure,
-        fdel=_del_pressure,
-        doc="The 3-sample median pressure of the Nova Pressure Sensor or -1 if it cannot be accessed"
-    )
 
 
 class MPRLSFile(PressureSensor):
@@ -262,7 +208,8 @@ class MPRLSFile(PressureSensor):
             self.cant_connect = True
             return []
     
-    def _get_pressure(self) -> float:
+    @property
+    def pressure(self) -> float:
         if not self.data:
             return -1
         try:
@@ -273,33 +220,14 @@ class MPRLSFile(PressureSensor):
         self.index = self.index + 1
         return value
     
-    def _get_triple_pressure(self) -> float:
+    @property
+    def triple_pressure(self) -> float:
         if not self.data:
             return -1
-        pressures = [self._get_pressure() for _ in range(3)]
+        pressures = [self.pressure for _ in range(3)]
         time.sleep(0.010) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
                           # Simulate 2 sleeps for reading from the actual sensor
         return median(pressures)
-    
-    def _set_pressure(self, value):
-        pass
-
-    def _del_pressure(self):
-        pass
-    
-    pressure = property(
-        fget=_get_pressure,
-        fset=_set_pressure,
-        fdel=_del_pressure,
-        doc="The pressure from the File or -1 if it cannot be accessed"
-    )
-    
-    triple_pressure = property(
-        fget=_get_triple_pressure,
-        fset=_set_pressure,
-        fdel=_del_pressure,
-        doc="The 3-sample median pressure from the File or -1 if it cannot be accessed"
-    )
 
 class MockPressureSensorStatic(PressureSensor):
     """Mock PressureSensor class to simulate pressure readings which are constant for testing."""
@@ -316,33 +244,28 @@ class MockPressureSensorStatic(PressureSensor):
         else:
             self.cant_connect = False
 
-    def _get_pressure(self) -> float:
+    @property
+    def pressure(self) -> float:
         """Simulate getting a single pressure reading."""
         return self._pressure_value
+    
+    @pressure.setter
+    def pressure(self, value):
+        """
+        Does nothing.
+        """
+        warn("You tried to set the pressure! There is something wrong with your implementation.")
 
-    def _get_triple_pressure(self) -> float:
+    @property
+    def triple_pressure(self) -> float:
         """Simulate getting a median of three pressure readings."""
         time.sleep(0.010) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
                           # Simulate 2 sleeps for reading from the actual sensor
         return self._triple_pressure_value
-
-    def _set_pressure(self, value):
-        pass
-
-    def _del_pressure(self):
-        pass
-
-    # Define the properties to match the real class
-    pressure = property(
-        fget=_get_pressure,
-        fset=_set_pressure,
-        fdel=_del_pressure,
-        doc="The pressure of the PressureSensor or -1 if it cannot be accessed"
-    )
-
-    triple_pressure = property(
-        fget=_get_triple_pressure,
-        fset=_set_pressure,
-        fdel=_del_pressure,
-        doc="The 3-sample median pressure of the PressureSensor or -1 if it cannot be accessed"
-    )
+    
+    @triple_pressure.setter
+    def triple_pressure(self, value):
+        """
+        Does nothing.
+        """
+        warn("You tried to set the pressure! There is something wrong with your implementation.")
