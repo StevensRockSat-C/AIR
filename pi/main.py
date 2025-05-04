@@ -89,7 +89,7 @@ Process.set_output_pressures(output_pressures)
 mprint.p("time & sys imported, files open. Time: " + str(timeMS()) + " ms\tFirst script on: " + str(FIRST_ON_MS) + " ms", output_log)
 mprint.p("Version " + str(VERSION) + ". Time: " + str(timeMS()) + " ms", output_log)
 
-mprint.w("Time (ms),T+ (ms),Pressure Canister (hPa),Pressure Bleed (hPa),Pressure Valve 1 (hPa),Pressure Valve 2 (hPa),Pressure Valve 3 (hPa)", output_pressures) # Set up our CSV headers
+mprint.w("Time (ms),T+ (ms),Pressure Manifold (hPa),Pressure Tank 1 (hPa),Pressure Tank 2 (hPa),Pressure Canister (hPa),", output_pressures) # Set up our CSV headers
 
 
 
