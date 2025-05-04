@@ -215,8 +215,8 @@ class MPRLSFile(PressureSensor):
         try:
             value = self.data[self.index]
         except IndexError:
-            return -1
             print("MPRLSFile get_pressure: reached EOF")
+            return -1
         self.index = self.index + 1
         return value
     
