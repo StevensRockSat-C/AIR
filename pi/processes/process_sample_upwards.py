@@ -90,38 +90,9 @@ class SampleUpwards(Process):
         for c in self.collections:
 
             if c.tank.state == TankState.LAST_RESORT: # c.tank.status LAST_RESORT? Yes
-                Process.get_multiprint().pform(f"Tank {c.tank.valve.name} for Collection {c.num} is {c.tank.state}! Waiting to test for efficacy at T+{c.up_start_time - c.bleed_duration - self.t_efficacy}s", 
+                Process.get_multiprint().pform(f"Tank {c.tank.valve.name} for Collection {c.num} is {c.tank.state}! Due to new constraints, we can not test for efficacy & therefore will not sample this Collection!", 
                                                Process.get_rtc().getTPlusMS(), Process.get_output_log())
-                while Process.get_rtc().getTPlusMS() < (c.up_start_time - c.bleed_duration - self.t_efficacy): # Reached evaluation time (c.up_start_time - c.bleed_duration - t_efficacy)?
-                    self.log_pressures.run()
-
-                Process.get_multiprint().pform(f"Beginning Collection {c.num} efficacy test.", 
-                                               Process.get_rtc().getTPlusMS(), Process.get_output_log())
-                
-                self.main_valve.open()
-                self.dynamic_valve.open()
-                Process.get_multiprint().pform(f"Opened Main Valve and Dynamic Valve",
-                                               Process.get_rtc().getTPlusMS(), Process.get_output_log())
-                
-                efficacy_start_time = Process.get_rtc().getTPlusMS()
-                while Process.get_rtc().getTPlusMS() < (efficacy_start_time + self.t_efficacy): #t_efficacy time passed?
-                    self.log_pressures.run()
-                
-                self.dynamic_valve.close()
-                self.main_valve.close()
-                Process.get_multiprint().pform(f"Closed Dynamic Valve and Main Valve",
-                                               Process.get_rtc().getTPlusMS(), Process.get_output_log())
-
-                post_efficacy_manifold_pressure = self.manifold_pressure_sensor.triple_pressure
-                post_efficacy_tank_pressure = c.tank.pressure_sensor.triple_pressure
-                if post_efficacy_manifold_pressure <= (post_efficacy_tank_pressure + c.choke_pressure): # Pmanifold > (Pc.tank+pchoke)? (using triple pressure) No
-                    Process.get_multiprint().pform(f"Manifold pressure ({post_efficacy_manifold_pressure} hPa) IS NOT much greater than tank pressure ({post_efficacy_tank_pressure} hPa)! Aborting Collection {c.num}!",
-                                                   Process.get_rtc().getTPlusMS(), Process.get_output_log())
-                    continue
-                else:
-                    Process.get_multiprint().pform(f"Manifold pressure ({post_efficacy_manifold_pressure} hPa) much greater than tank pressure ({post_efficacy_tank_pressure} hPa)!",
-                                                   Process.get_rtc().getTPlusMS(), Process.get_output_log())
-                    # Will if statement to begin collection from here.
+                continue
                 
             elif c.tank.state != TankState.READY: # Is c.tank.status READY? No
                 Process.get_multiprint().pform(f"Tank {c.tank.valve.name} for Collection {c.num} is {c.tank.state}! Will not sample this Collection!", 
@@ -136,6 +107,7 @@ class SampleUpwards(Process):
             else: # Process.get_plumbing_state READY? Yes
                 Process.get_multiprint().pform(f"Waiting for Collection {c.num} at T+{c.up_start_time}ms with {c.bleed_duration}ms of bleed", 
                                                Process.get_rtc().getTPlusMS(), Process.get_output_log())
+                LogPressures.set_currently_sampling(False)
                 while Process.get_rtc().getTPlusMS() < (c.up_start_time - c.bleed_duration): # Reached collection's time (c.up_start_time - c.bleed_duration)?
                     self.log_pressures.run()
 
@@ -164,6 +136,7 @@ class SampleUpwards(Process):
                                             Process.get_rtc().getTPlusMS(), Process.get_output_log())
 
         bleed_start_time = Process.get_rtc().getTPlusMS()
+        LogPressures.set_currently_sampling(False)
         while Process.get_rtc().getTPlusMS() < (bleed_start_time + c.bleed_duration): #b time passed?
             self.log_pressures.run()
         del bleed_start_time    # Ensure this doesn't get accidentally reused
@@ -192,6 +165,7 @@ class SampleUpwards(Process):
                                         Process.get_rtc().getTPlusMS(), Process.get_output_log())
             
             sample_start_time = Process.get_rtc().getTPlusMS()
+            LogPressures.set_currently_sampling(True)
             while Process.get_rtc().getTPlusMS() < (sample_start_time + c.up_duration): #tc time passed?
                 self.log_pressures.run()
 
@@ -243,6 +217,7 @@ class SampleUpwards(Process):
                                         Process.get_rtc().getTPlusMS(), Process.get_output_log())
             
             t_small_start_time = Process.get_rtc().getTPlusMS()
+            LogPressures.set_currently_sampling(True)
             while Process.get_rtc().getTPlusMS() < (t_small_start_time + self.t_small): # tsmall time passed?
                 self.log_pressures.run()
             del t_small_start_time
