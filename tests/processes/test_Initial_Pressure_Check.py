@@ -14,6 +14,7 @@ from pi.processes.process_initial_pressure_check import InitialPressureCheck, Pl
 from pi.RTC import RTCFile
 from pi.MPRLS import MPRLSFile, MockPressureSensorStatic
 from tests.test_Tank import MockValve
+from tests.processes.test_Process import MockTank
 from pi.multiprint import MockMultiPrinter
 from pi.tank import TankState
 from pi.processes.process_log_pressures import LogPressures

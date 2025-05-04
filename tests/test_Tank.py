@@ -5,8 +5,9 @@ sys.path.append('../')
 
 from pi.tank import Tank, TankState
 from pi.MPRLS import MockPressureSensorStatic
+from pi.valve import Valve
 
-class MockValve:
+class MockValve(Valve):
     """Mock Valve class to fully isolate Tank tests."""
     def __init__(self, pin, name):
         self.pin = pin
