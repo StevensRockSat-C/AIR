@@ -139,6 +139,12 @@ class DummyI2CChannel:
         buf[0] = (self.raw_value >> 8) & 0xFF
         buf[1] = self.raw_value & 0xFF
 
+    def try_lock(self):
+        return True
+
+    def unlock(self):
+        pass
+
 class DummyI2CFailChannel:
     def readfrom_into(self, address, buf):
         raise Exception("I2C read error")
@@ -292,19 +298,11 @@ def test_nova_pressure_sensor_init_ready(monkeypatch):
     """
     Test the __init__ behavior of NovaPressureSensor.
     The constructor tries three times to set self.ready.
-    By simulating a channel that returns a raw value low enough (e.g. 5),
-    is_pressure_valid will return True (since 5 > 0 and 5 <= 30),
-    so ready should be set to True.
     (Note: this test exposes a quirk in the __init__ logic where raw values are
     used directly for validity.)
     """
-    class DummyI2CChannelReady:
-        def readfrom_into(self, address, buf):
-            # Simulate a raw value of 5 (which is <= PSI_MAX)
-            buf[0] = 0
-            buf[1] = 5  # raw value = 5
     monkeypatch.setattr(time, "sleep", lambda x: None)
-    channel = DummyI2CChannelReady()
+    channel = DummyI2CChannel(raw_value=1700)
     sensor = NovaPressureSensor(channel)
     assert sensor.ready is True
 
