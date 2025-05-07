@@ -1,9 +1,10 @@
-import sys
 import os
 from warnings import warn
 from typing import Union
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.parent.absolute()))
 
 from pi.processes.process import Process
 from pi.MPRLS import PressureSensor, TemperatureSensor, PressureTemperatureSensor
