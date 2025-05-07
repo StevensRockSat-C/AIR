@@ -5,7 +5,8 @@ import tempfile
 from warnings import warn
 
 import sys
-sys.path.append('../../')
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.parent.absolute()))
 
 from pi.processes.process_log_pressures import LogPressures
 from pi.RTC import RTCFile
@@ -97,10 +98,11 @@ def test_run_success(setup_process, log_pressures_instance, mock_multiprint, moc
     sensor3 = MockPressureSensorStatic(300)
     log_pressures_instance.set_pressure_sensors([sensor1, sensor2, sensor3])
     
-    assert log_pressures_instance.run() == True
+    res = log_pressures_instance.run() 
+    assert res == True
     
     # The expected output string: "<timestamp>,100,200,300,"
-    expected_output = f"{mock_rtc.getTPlusMS()},{sensor1.pressure},{sensor2.pressure},{sensor3.pressure},"
+    expected_output = f"{Process.rtc.getTPlusMS()},{sensor1.pressure},{sensor2.pressure},{sensor3.pressure},"
     assert (expected_output) in Process.multiprint.logs[Process.output_pressures.name]
 
 def test_runtime_less_than_5ms(setup_process, log_pressures_instance):

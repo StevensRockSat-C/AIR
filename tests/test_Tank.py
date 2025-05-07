@@ -1,7 +1,8 @@
 import warnings
 import pytest
 import sys
-sys.path.append('../')
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.absolute()))
 
 from pi.tank import Tank, TankState
 from pi.MPRLS import MockPressureSensorStatic
