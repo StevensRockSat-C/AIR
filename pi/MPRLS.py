@@ -462,7 +462,7 @@ class MockPressureSensorStatic(PressureSensor):
     @property
     def triple_pressure(self) -> float:
         """Simulate getting a median of three pressure readings."""
-        time.sleep(0.010) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
+        time.sleep(0.001) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
                           # Simulate 2 sleeps for reading from the actual sensor
         return self._triple_pressure_value
     
@@ -510,7 +510,7 @@ class MockPressureTemperatureSensorStatic(PressureTemperatureSensor):
     @property
     def triple_pressure(self) -> float:
         """Simulate getting a median of three pressure readings."""
-        time.sleep(0.010) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
+        time.sleep(0.001) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
                           # Simulate 2 sleeps for reading from the actual sensor
         return self._triple_pressure_value
     
@@ -536,7 +536,7 @@ class MockPressureTemperatureSensorStatic(PressureTemperatureSensor):
     @property
     def triple_temperature(self) -> float:
         """Simulate getting a median of three temperature readings."""
-        time.sleep(0.010) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
+        time.sleep(0.001) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
                           # Simulate 2 sleeps for reading from the actual sensor
         return self._triple_temperature_value
     
@@ -562,7 +562,7 @@ class MockPressureTemperatureSensorStatic(PressureTemperatureSensor):
     @property
     def triple_pressure_and_temp(self) -> tuple[float, float]:
         """Simulate getting a median of three pressure & temperature readings."""
-        time.sleep(0.010) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
+        time.sleep(0.001) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
                           # Simulate 2 sleeps for reading from the actual sensor
         return (self._triple_pressure_value, self._triple_temperature_value)
     

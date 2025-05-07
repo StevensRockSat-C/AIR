@@ -147,12 +147,18 @@ def test_run_success(setup_process, log_pressures_instance: LogPressures, mock_m
 
 def test_runtime_less_than_5ms(setup_process, log_pressures_instance):
     """Test the execution time with 5 pressure sensors"""
-    sensor1 = MockPressureSensorStatic(100)
-    sensor2 = MockPressureSensorStatic(200)
-    sensor3 = MockPressureSensorStatic(300)
-    sensor4 = MockPressureSensorStatic(400)
-    sensor5 = MockPressureSensorStatic(500)
-    log_pressures_instance.set_pressure_sensors([sensor1, sensor2, sensor3, sensor4, sensor5])
+    sensor1 = MockPressureTemperatureSensorStatic(1000, 100)
+    sensor2 = MockPressureTemperatureSensorStatic(1000, 200)
+    sensor3 = MockPressureTemperatureSensorStatic(1000, 300)
+    # sensor4 = MockPressureTemperatureSensorStatic(1000, 400)
+    # sensor5 = MockPressureTemperatureSensorStatic(1000, 500)
+    log_pressures_instance.set_pressure_sensors([sensor1, sensor2, sensor3])
+
+    dpv_temp_sensor = MockPressureTemperatureSensorStatic(1000, 350)
+    log_pressures_instance.set_dpv_temperature(dpv_temp_sensor)
+
+    sensor_canister = MockPressureSensorStatic(400)
+    log_pressures_instance.set_canister_pressure_sensor(sensor_canister)
 
     import time
     start = time.perf_counter()
