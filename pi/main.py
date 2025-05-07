@@ -218,6 +218,14 @@ def gswitch_callback(channel):
     """
     t0 = timeMS()
     GPIO.remove_event_detect(GSWITCH_PIN)
+
+    prior_t0 = rtc.getT0MS()
+    estimated_diff_ms = t0 - prior_t0
+
+    if (estimated_diff_ms < -120000 or estimated_diff_ms > 5000): # Only accept between T-120s and T+5s
+        mprint.pform("G-Switch input! Difference from RBF estimation: " + str(estimated_diff_ms) + " ms, which is too far off! We'll ignore it!", rtc.getTPlusMS(), output_log)
+        return
+
     difference = rtc.setEstT0(t0)
     mprint.pform("G-Switch input! New t0: " + str(t0) + " ms. Difference from RBF estimation: " + str(difference) + " ms", rtc.getTPlusMS(), output_log)
     
