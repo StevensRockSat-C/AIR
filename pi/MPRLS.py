@@ -472,3 +472,103 @@ class MockPressureSensorStatic(PressureSensor):
         Does nothing.
         """
         warn("You tried to set the pressure! There is something wrong with your implementation.")
+
+class MockPressureTemperatureSensorStatic(PressureTemperatureSensor):
+    """Mock PressureSensor class to simulate pressure readings which are constant for testing."""
+
+    def __init__(self, pressure: float, temperature: float, triple_pressure: Optional[float] = None, triple_temperature: Optional[float] = None):
+        self._pressure_value = pressure
+        if triple_pressure is None:
+            self._triple_pressure_value = pressure
+        else:
+            self._triple_pressure_value = triple_pressure
+
+        self._temperature_value = temperature
+        if triple_temperature is None:
+            self._triple_temperature_value = temperature
+        else:
+            self._triple_temperature_value = triple_temperature
+
+            
+        if self.pressure == -1 or self.triple_pressure == -1 or self.temperature == -1 or self.triple_temperature == -1:
+            self.cant_connect = True
+        else:
+            self.cant_connect = False
+
+    @property
+    def pressure(self) -> float:
+        """Simulate getting a single pressure reading."""
+        return self._pressure_value
+    
+    @pressure.setter
+    def pressure(self, value):
+        """
+        Does nothing.
+        """
+        warn("You tried to set the pressure! There is something wrong with your implementation.")
+
+    @property
+    def triple_pressure(self) -> float:
+        """Simulate getting a median of three pressure readings."""
+        time.sleep(0.010) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
+                          # Simulate 2 sleeps for reading from the actual sensor
+        return self._triple_pressure_value
+    
+    @triple_pressure.setter
+    def triple_pressure(self, value):
+        """
+        Does nothing.
+        """
+        warn("You tried to set the pressure! There is something wrong with your implementation.")
+        
+    @property
+    def temperature(self) -> float:
+        """Simulate getting a single temperature reading."""
+        return self._temperature_value
+    
+    @temperature.setter
+    def temperature(self, value):
+        """
+        Does nothing.
+        """
+        warn("You tried to set the temperature! There is something wrong with your implementation.")
+
+    @property
+    def triple_temperature(self) -> float:
+        """Simulate getting a median of three temperature readings."""
+        time.sleep(0.010) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
+                          # Simulate 2 sleeps for reading from the actual sensor
+        return self._triple_temperature_value
+    
+    @triple_temperature.setter
+    def triple_temperature(self, value):
+        """
+        Does nothing.
+        """
+        warn("You tried to set the temperature! There is something wrong with your implementation.")
+        
+    @property
+    def pressure_and_temp(self) -> tuple[float, float]:
+        """Simulate getting a single pressure * temperature reading."""
+        return (self._pressure_value, self._temperature_value)
+    
+    @pressure_and_temp.setter
+    def pressure_and_temp(self, value):
+        """
+        Does nothing.
+        """
+        warn("You tried to set the pressure and temp! There is something wrong with your implementation.")
+
+    @property
+    def triple_pressure_and_temp(self) -> tuple[float, float]:
+        """Simulate getting a median of three pressure & temperature readings."""
+        time.sleep(0.010) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
+                          # Simulate 2 sleeps for reading from the actual sensor
+        return (self._triple_pressure_value, self._triple_temperature_value)
+    
+    @triple_pressure_and_temp.setter
+    def triple_pressure_and_temp(self, value):
+        """
+        Does nothing.
+        """
+        warn("You tried to set the pressure & temperature! There is something wrong with your implementation.")

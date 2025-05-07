@@ -10,7 +10,7 @@ sys.path.append(str(Path(__file__).parent.parent.parent.absolute()))
 
 from pi.processes.process_log_pressures import LogPressures
 from pi.RTC import RTCFile
-from pi.MPRLS import MockPressureSensorStatic
+from pi.MPRLS import MockPressureSensorStatic, MockPressureTemperatureSensorStatic
 from pi.multiprint import MockMultiPrinter
 
 from pi.processes.process import Process
@@ -79,7 +79,7 @@ def test_run_not_ready(monkeypatch, setup_process, log_pressures_instance: LogPr
     # Check that a warning message was logged via pform on the output log
     assert ("T+ " + str(Process.rtc.getTPlusMS()) + " ms\tProcess is not ready for LogPressures!") in Process.multiprint.logs[Process.output_log.name]
 
-def test_initialize_failure(setup_process, log_pressures_instance, mock_multiprint, mock_rtc, mock_log):
+def test_initialize_failure_total(setup_process, log_pressures_instance, mock_multiprint, mock_rtc, mock_log):
     """
     If pressure_sensors is None, run() should return False and log a warning.
     """
@@ -88,21 +88,61 @@ def test_initialize_failure(setup_process, log_pressures_instance, mock_multipri
     assert result is False
     assert ("T+ " + str(Process.rtc.getTPlusMS()) + " ms\tPressure Sensors not set for LogPressures!") in Process.multiprint.logs[Process.output_log.name]
 
-def test_run_success(setup_process, log_pressures_instance, mock_multiprint, mock_rtc, mock_pressures_log):
+def test_initialize_failure_dpv(setup_process, log_pressures_instance, mock_multiprint, mock_rtc, mock_log):
     """
-    Test that execute() constructs the proper output string from the sensor pressures.
+    If dpv temp sensor is None, run() should return False and log a warning.
     """
     # Create three dummy pressure sensors with known pressures
     sensor1 = MockPressureSensorStatic(100)
     sensor2 = MockPressureSensorStatic(200)
     sensor3 = MockPressureSensorStatic(300)
     log_pressures_instance.set_pressure_sensors([sensor1, sensor2, sensor3])
+
+    result = log_pressures_instance.run()
+
+    assert result is False
+    assert ("T+ " + str(Process.rtc.getTPlusMS()) + " ms\tDPV Temperature Sensor not set for LogPressures!") in Process.multiprint.logs[Process.output_log.name]
+
+
+def test_initialize_failure_canister(setup_process, log_pressures_instance: LogPressures, mock_multiprint, mock_rtc, mock_log):
+    """
+    If canister_pressure_sensor is None, run() should return False and log a warning.
+    """
+    # Create three dummy pressure sensors with known pressures
+    sensor1 = MockPressureSensorStatic(100)
+    sensor2 = MockPressureSensorStatic(200)
+    sensor3 = MockPressureSensorStatic(300)
+    log_pressures_instance.set_pressure_sensors([sensor1, sensor2, sensor3])
+
+    dpv_temp_sensor = MockPressureTemperatureSensorStatic(1000, 350)
+    log_pressures_instance.set_dpv_temperature(dpv_temp_sensor)
+
+    result = log_pressures_instance.run()
+
+    assert result is False
+    assert ("T+ " + str(Process.rtc.getTPlusMS()) + " ms\tCanister Pressure Sensor not set for LogPressures!") in Process.multiprint.logs[Process.output_log.name]
+
+def test_run_success(setup_process, log_pressures_instance: LogPressures, mock_multiprint, mock_rtc, mock_pressures_log):
+    """
+    Test that execute() constructs the proper output string from the sensor pressures.
+    """
+    # Create three dummy pressure sensors with known pressures
+    sensor1 = MockPressureTemperatureSensorStatic(100, 340)
+    sensor2 = MockPressureTemperatureSensorStatic(200, 340)
+    sensor3 = MockPressureTemperatureSensorStatic(300, 340)
+    log_pressures_instance.set_pressure_sensors([sensor1, sensor2, sensor3])
+
+    dpv_temp_sensor = MockPressureTemperatureSensorStatic(1000, 350)
+    log_pressures_instance.set_dpv_temperature(dpv_temp_sensor)
+
+    sensor_canister = MockPressureSensorStatic(400)
+    log_pressures_instance.set_canister_pressure_sensor(sensor_canister)
     
     res = log_pressures_instance.run() 
     assert res == True
     
     # The expected output string: "<timestamp>,100,200,300,"
-    expected_output = f"{Process.rtc.getTPlusMS()},{sensor1.pressure},{sensor2.pressure},{sensor3.pressure},"
+    expected_output = f"{Process.rtc.getTPlusMS()},{sensor1.pressure},{sensor2.pressure},{sensor3.pressure},{sensor_canister.pressure},"
     assert (expected_output) in Process.multiprint.logs[Process.output_pressures.name]
 
 def test_runtime_less_than_5ms(setup_process, log_pressures_instance):
