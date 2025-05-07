@@ -5,6 +5,11 @@ import time
 from statistics import median
 from warnings import warn
 from typing import Optional
+
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.absolute()))
+
 try:
     import adafruit_mprls
 except ImportError:

@@ -5,6 +5,10 @@ An implementation of the DS3231 RTC for T+ caculation
 import time
 from abc import ABC, abstractmethod
 
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.absolute()))
+
 try:
     import adafruit_ds3231
 except (ImportError, ModuleNotFoundError) as e:

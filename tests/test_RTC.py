@@ -1,7 +1,10 @@
 import time
 import sys
-sys.path.append('../')
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.absolute()))
+
 from pi.RTC import RTCFile, RTCWrappedSensor
+
 import pytest
 
 # --- Dummy DS3231 for simulating a working RTC in RTCWrappedSensor ---
