@@ -42,14 +42,14 @@ GSWITCH_PIN = 25            # G-switch input pin
 collection_1 = Collection(num = 1, # TODO: ALL THESE NUMBERS ARE CURRENTLY ESTIMATES (5/4/2025)
                           up_start_time = 16000,
                           bleed_duration = 500, 
-                          up_driving_pressure = 4600,
-                          up_final_stagnation_pressure = 1900,
+                          up_driving_pressure = 3290,
+                          up_final_stagnation_pressure = 1200,
                           choke_pressure = 1500,
                           up_duration = 700
                           )
 collection_dummy = Collection(num = 2,
                           up_start_time = 0,
-                          bleed_duration = 0, 
+                          bleed_duration = 0,
                           up_driving_pressure = 0,
                           up_final_stagnation_pressure = 0,
                           choke_pressure = 0,
