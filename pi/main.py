@@ -34,7 +34,7 @@ GPIO_MODE = GPIO.BCM
 VALVE_MAIN_PIN = 17         # ASCO Main Valve control pin. 11 (BOARD) -> 17 (BCM)
 VALVE_DYNAMIC_PIN = 27      # ASCO Dynamic Pressure Valve control pin. 13 (BOARD) -> 27 (BCM)
 VALVE_STATIC_PIN = 18       # ASCO Static Pressure Valve control pin. 12 (BOARD) -> 18 (BCM)
-VALVE_1_PIN = 22            # ASCO First tank control pin. 15 (BOARD) -> 22 (BCM)
+VALVE_1_PIN = 24            # ASCO First tank control pin. 15 (BOARD) -> 22 (BCM)
 VALVE_2_PIN = 23            # ASCO Second tank control pin. 16 (BOARD) -> 23 (BCM)
 GSWITCH_PIN = 25            # G-switch input pin
 
