@@ -3,6 +3,10 @@ import os
 from abc import ABC, abstractmethod
 from tempfile import _TemporaryFileWrapper
 
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.absolute()))
+
 class MultiPrinterAbstract(ABC):
     @abstractmethod
     def p(self, message, f):

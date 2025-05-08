@@ -1,7 +1,8 @@
 import warnings
 import pytest
 import sys
-sys.path.append('../')
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.absolute()))
 from pi.valve import Valve  # Import the Valve class
 
 class MockGPIO:
