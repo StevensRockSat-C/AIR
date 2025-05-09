@@ -173,6 +173,10 @@ class NovaPressureSensor(PressureTemperatureSensor):
                 self.ready = True
                 break
             time.sleep(0.01) # Wait 10 ms to see if i2c works again
+
+    @property
+    def cant_connect(self) -> bool:
+        return not self.ready
     
     def _read_pressure_digital(self) -> int:
         """
