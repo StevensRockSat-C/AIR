@@ -236,7 +236,7 @@ def gswitch_callback(channel):
 # Setup the G-Switch listener
 GPIO.setup(GSWITCH_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.add_event_detect(GSWITCH_PIN, GPIO.FALLING,
-                      callback=gswitch_callback, bouncetime=10)
+                      callback=gswitch_callback, bouncetime=100)
 
 # Setup our Tank objects
 tank_1 = Tank(valve_1, nova_tank_1)
