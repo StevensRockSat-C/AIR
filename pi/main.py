@@ -22,7 +22,7 @@ This STILL NEEDS TO DO:
 
 # Communications
 from RPi import GPIO
-from collection import Collection
+from pi.collection import Collection
 
 # ---- SETTINGS ----
 VERSION = "bones.2025.5.4"
@@ -75,7 +75,7 @@ TIME_LAUNCH_MS = -1
 
 # System control, like file writing
 import os
-from multiprint import MultiPrinter
+from pi.multiprint import MultiPrinter
 
 mprint = MultiPrinter()
 
