@@ -22,6 +22,10 @@ This STILL NEEDS TO DO:
 
 # Communications
 from RPi import GPIO
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.absolute()))  
+
 from pi.collection import Collection
 
 # ---- SETTINGS ----
