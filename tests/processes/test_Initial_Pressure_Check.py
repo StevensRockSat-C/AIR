@@ -5,7 +5,8 @@ import tempfile
 from warnings import warn
 
 import sys
-sys.path.append('../../')
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.parent.absolute()))
 
 from pi.processes.process_initial_pressure_check import InitialPressureCheck
 from pi.RTC import RTCFile

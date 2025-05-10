@@ -1,5 +1,10 @@
 from warnings import warn
 from typing import Final, Literal
+
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.absolute()))
+
 try:
     import RPi.GPIO as GPIO
 except ImportError:
