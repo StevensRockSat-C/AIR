@@ -1,10 +1,11 @@
 import sys
 import os
+from pathlib import Path
 
 # Allow execution from 'pi' directory
 if __name__ == "__main__":
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-    
+    sys.path.append(str(Path(__file__).parent.parent.absolute()))  
+
 from pi.MPRLS import PressureSensor
 from pi.tank import Tank, TankState
 
@@ -18,45 +19,39 @@ class Collection:
         The index of this collection period.
     up_start_time : int
         The T+ timestamp (ms) when sampling should start on ascent.
-    down_start_time : int
-        The T+ timestamp (ms) when sampling should start on descent.
     bleed_duration : int
         How long (ms) to bleed the lines before collecting.
     up_driving_pressure : float
-        Expected pressure (hPa) in the tank on ascent.
-    down_driving_pressure : float
-        Expected pressure (hPa) in the tank on descent.
-    upwards_bleed : bool
-        Whether this collection requires bleeding when sampling on ascent.
-    up_duration : int, optional
-        Duration (ms) to keep the valve open on ascent (default: 100ms).
-    down_duration : int, optional
-        Duration (ms) to keep the valve open on descent (default: 100ms).
+        Expected pressure (hPa) in the manifold while sampling on ascent.
+    up_final_stagnation_pressure : float
+        Expected pressure (hPa) in the tank after sampling on ascent.
+    choke_pressure : float
+        The absolute maximum tank pressure (hPa) for choked flow to work on this sample.
+    up_duration : int
+        Duration (ms) to keep the valve open on ascent.
     tank : Tank, optional
         The associated tank (default: None).
     """
 
     def __init__(
         self, num: int,
-        up_start_time: int, down_start_time: int,
+        up_start_time: int,
         bleed_duration: int,
-        up_driving_pressure: float, down_driving_pressure: float,
-        upwards_bleed: bool,
-        up_duration: int = 100, down_duration: int = 100,
+        up_driving_pressure: float,
+        up_final_stagnation_pressure: float,
+        choke_pressure: float,
+        up_duration: int,
         tank: Tank = None
     ):
         """Initialize a Collection instance."""
         self.num = str(num)
         self.up_start_time = up_start_time
-        self.down_start_time = down_start_time
         self.bleed_duration = bleed_duration
         self.up_driving_pressure = up_driving_pressure
-        self.down_driving_pressure = down_driving_pressure
-        self.upwards_bleed = upwards_bleed
+        self.up_final_stagnation_pressure = up_final_stagnation_pressure
+        self.p_choke = choke_pressure
         self.up_duration = up_duration
-        self.down_duration = down_duration
         self.tank = tank
-        self.sample_upwards = True  # Set to False if sampling on descent
         self.sampled_count = 0  # Tracks how many times we've tried to sample
         
     @property

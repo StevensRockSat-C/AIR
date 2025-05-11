@@ -5,7 +5,8 @@ import pytest
 from warnings import warn
 
 import sys
-sys.path.append('../../')
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.parent.absolute()))
 
 from pi.processes.process import Process, PlumbingState
 from pi.RTC import RTCFile
@@ -73,11 +74,14 @@ def test_process_initialization():
     rtc = RTCFile(123456)
     log = tempfile.NamedTemporaryFile(mode='w+', suffix=".txt", delete=True)
     pressures = tempfile.NamedTemporaryFile(mode='w+', suffix=".txt", delete=True)
+    state = PlumbingState.READY
 
     Process.multiprint = multiprint
     Process.rtc = rtc
     Process.output_log = log
     Process.output_pressures = pressures
+    Process.plumbing_state = state
+
 
     assert Process.multiprint == multiprint
     assert Process.rtc == rtc

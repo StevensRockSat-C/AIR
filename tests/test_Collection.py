@@ -1,7 +1,8 @@
 import pytest
 import sys
 
-sys.path.append('../')
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.absolute()))
 
 from pi.collection import Collection
 from pi.MPRLS import MockPressureSensorStatic
@@ -20,7 +21,7 @@ class MockTank:
         self.state = "CLOSED"
 
 @pytest.fixture
-def mock_tank():
+def mock_tank() -> MockTank:
     """Fixture for a mocked tank."""
     return MockTank("Mock Tank")
 
@@ -28,33 +29,46 @@ def test_collection_initialization():
     """Test that a collection initializes correctly with expected attributes."""
     collection = Collection(
         num=1,
-        up_start_time=40305, down_start_time=290000,
+        up_start_time=40305,
         bleed_duration=1, 
-        up_driving_pressure=1270.44, down_driving_pressure=998.20,
-        upwards_bleed=False
+        up_driving_pressure=1270.44,
+        up_final_stagnation_pressure=1600.5,
+        choke_pressure=1500.0,
+        up_duration=600
     )
 
     assert collection.num == "1"
     assert collection.up_start_time == 40305
-    assert collection.down_start_time == 290000
     assert collection.bleed_duration == 1
     assert collection.up_driving_pressure == 1270.44
-    assert collection.down_driving_pressure == 998.20
-    assert collection.upwards_bleed is False
+    assert collection.up_final_stagnation_pressure == 1600.5
+    assert collection.p_choke == 1500.0
+    assert collection.up_duration == 600
     assert collection.tank is None
     assert collection.pressure_sensor is None # Should be None when no tank is assigned
     assert collection.sampled is False
-    assert collection.sample_upwards is True
     assert collection.sampled_count == 0
+    
+    # Ensure old values no longer exist
+    with pytest.raises(AttributeError):
+        collection.down_start_time
+    with pytest.raises(AttributeError):
+        collection.down_driving_pressure
+    with pytest.raises(AttributeError):
+        collection.upwards_bleed
+    with pytest.raises(AttributeError):
+        collection.sample_upwards
 
-def test_collection_associate_tank(mock_tank):
+def test_collection_associate_tank(mock_tank: MockTank):
     """Test associating a tank with a collection."""
     collection = Collection(
         num=2,
-        up_start_time=70000, down_start_time=255000,
+        up_start_time=70000,
         bleed_duration=5,
-        up_driving_pressure=753.43, down_driving_pressure=545.52,
-        upwards_bleed=True
+        up_driving_pressure=753.43,
+        up_final_stagnation_pressure=403.5,
+        choke_pressure=500.0,
+        up_duration=700
     )
 
     collection.associate_tank(mock_tank)
@@ -62,14 +76,16 @@ def test_collection_associate_tank(mock_tank):
     assert collection.tank == mock_tank
     assert collection.pressure_sensor == mock_tank.pressure_sensor  # Ensure mprls is dynamically referenced
 
-def test_collection_associate_tank_updates_properly(mock_tank):
+def test_collection_associate_tank_updates_properly(mock_tank: MockTank):
     """Test re-associating a different tank and sensor with a collection."""
     collection = Collection(
         num=3,
-        up_start_time=90000, down_start_time=230000,
+        up_start_time=90000,
         bleed_duration=36,
-        up_driving_pressure=490.13, down_driving_pressure=329.96,
-        upwards_bleed=True
+        up_driving_pressure=490.13,
+        up_final_stagnation_pressure=392.35,
+        choke_pressure=300.0,
+        up_duration=900
     )
 
     # First association
@@ -90,26 +106,32 @@ def test_collections_in_array():
 
     collection1 = Collection(
         num=1,
-        up_start_time=40305, down_start_time=290000,
+        up_start_time=40305,
         bleed_duration=1, 
-        up_driving_pressure=1270.44, down_driving_pressure=998.20,
-        upwards_bleed=False
+        up_driving_pressure=1270.44,
+        up_final_stagnation_pressure=932.12,
+        choke_pressure=1500.0,
+        up_duration=600
     )
     
     collection2 = Collection(
         num=2,
-        up_start_time=70000, down_start_time=255000,
+        up_start_time=70000,
         bleed_duration=5,
-        up_driving_pressure=753.43, down_driving_pressure=545.52,
-        upwards_bleed=True
+        up_driving_pressure=753.43,
+        up_final_stagnation_pressure=452.12,
+        choke_pressure=500.0,
+        up_duration=700
     )
     
     collection3 = Collection(
         num=3,
-        up_start_time=90000, down_start_time=230000,
+        up_start_time=90000,
         bleed_duration=36,
-        up_driving_pressure=490.13, down_driving_pressure=329.96,
-        upwards_bleed=True
+        up_driving_pressure=490.13,
+        up_final_stagnation_pressure=305.51,
+        choke_pressure=300.0,
+        up_duration=900
     )
 
     tank1 = MockTank("Mock Tank 1", pressure=100)
@@ -137,18 +159,22 @@ def test_collection_swap_tanks():
 
     collection1 = Collection(
         num=1,
-        up_start_time=40305, down_start_time=290000,
+        up_start_time=40305,
         bleed_duration=1, 
-        up_driving_pressure=1270.44, down_driving_pressure=998.20,
-        upwards_bleed=False
+        up_driving_pressure=1270.44,
+        up_final_stagnation_pressure=932.12,
+        choke_pressure=1500.0,
+        up_duration=600
     )
     
     collection2 = Collection(
         num=2,
-        up_start_time=70000, down_start_time=255000,
+        up_start_time=70000,
         bleed_duration=5,
-        up_driving_pressure=753.43, down_driving_pressure=545.52,
-        upwards_bleed=True
+        up_driving_pressure=753.43,
+        up_final_stagnation_pressure=452.12,
+        choke_pressure=500.0,
+        up_duration=700
     )
 
     tank1 = MockTank("Mock Tank 1", pressure=100)
