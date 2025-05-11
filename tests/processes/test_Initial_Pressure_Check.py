@@ -14,18 +14,11 @@ from pi.processes.process_initial_pressure_check import InitialPressureCheck, Pl
 from pi.RTC import RTCFile
 from pi.MPRLS import MPRLSFile, MockPressureSensorStatic, MockPressureTemperatureSensorStatic
 from tests.test_Tank import MockValve
+from tests.processes.test_Process import MockTank
 from pi.multiprint import MockMultiPrinter
 from pi.tank import TankState
 from pi.processes.process_log_pressures import LogPressures
 from pi.processes.process import Process
-
-
-class MockTank:
-    """Mock Tank class to simulate tanks with valves and sensors."""
-    def __init__(self, name, filepath: str):
-        self.valve = MockValve(10, name)
-        self.mprls = MPRLSFile(os.path.join(os.path.dirname(os.path.abspath(__file__)), filepath))
-        self.state = TankState.UNKNOWN   
 
 @pytest.fixture
 def mock_multiprint(monkeypatch):
@@ -268,13 +261,12 @@ def test_uses_triple_pressure(setup_initial_pressure_check, initial_pressure_che
     class MockTankWithDifferentPressures(MockTank):
         def __init__(self, name):
             super().__init__(name, "test_Initial_Pressure_Check_all_good.csv")
-            self.mprls = MockPressureSensorStatic(800, 950)
+            self.pressure_sensor = MockPressureSensorStatic(800, 950)
     
     tanks = [MockTankWithDifferentPressures("A")]
     initial_pressure_check.set_tanks(tanks)
 
     file_pressure_sensor = MPRLSFile(os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_Initial_Pressure_Check_manifold_failing.csv"))
-    print(file_pressure_sensor.data)
     initial_pressure_check.set_manifold_pressure_sensor(file_pressure_sensor)
 
     initial_pressure_check.set_main_valve(MockValve(10, "mockValve"))
