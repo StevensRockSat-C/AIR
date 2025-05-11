@@ -20,8 +20,8 @@ from tests.test_Tank import MockValve
 class MockCollection(Collection):
     def __init__(self, num: int):
         # Provide dummy values for required parameters; num is stored as a string.
-        super().__init__(num=num, up_start_time=0, down_start_time=0, bleed_duration=0,
-                         up_driving_pressure=0, down_driving_pressure=0, upwards_bleed=False)
+        super().__init__(num=num, up_start_time=0, bleed_duration=0, up_driving_pressure=0,
+                         up_final_stagnation_pressure=0, choke_pressure=0, up_duration=0)
         self.assigned_tank = None
 
     def associate_tank(self, tank):
