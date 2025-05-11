@@ -47,7 +47,7 @@ class LogPressures(Process):
         self.dpv_temperature_sensor = dpv_temperature_sensor
 
     def run(self) -> bool:
-        print(type(Process.get_multiprint()))
+        #print(type(Process.get_multiprint()))
         if not Process.is_ready():
             warn("Process is not ready for LogPressures!")
             if Process.can_log():

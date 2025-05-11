@@ -76,8 +76,9 @@ class TankState(Enum):
     """
     UNKNOWN = 0
     UNSAFE = 1
-    UNREACHABLE = 2
-    LAST_RESORT = 3
-    READY = 4
-    FAILED_SAMPLE = 5
-    SAMPLED = 6
+    CRITICAL = 2
+    UNREACHABLE = 3
+    LAST_RESORT = 4
+    READY = 5
+    FAILED_SAMPLE = 6
+    SAMPLED = 7
