@@ -34,7 +34,6 @@ class InitialPressureCheck(Process):
         self.main_valve = main_valve
 
     def run(self) -> bool:
-        print(type(Process.get_multiprint()))
         if not Process.is_ready():
             warn("Process is not ready for Initial Pressure Check!")
             if Process.can_log():

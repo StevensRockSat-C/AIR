@@ -407,8 +407,9 @@ class MPRLSFile(PressureSensor):
         try:
             with open(self.file_path, 'r') as f:
                 return [float(line.strip()) for line in f.readlines()]
-        except Exception:
+        except Exception as e:
             self.cant_connect = True
+            warn("You just tried to initialize an MPRLSFile with no data!\n" + str(e))
             return []
     
     @property
@@ -418,7 +419,7 @@ class MPRLSFile(PressureSensor):
         try:
             value = self.data[self.index]
         except IndexError:
-            print("MPRLSFile get_pressure: reached EOF")
+            warn("MPRLSFile get_pressure: reached EOF")
             return -1
         self.index = self.index + 1
         return value
