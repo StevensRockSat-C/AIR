@@ -44,7 +44,7 @@ class SwapTanks(Process):
             Process.get_multiprint().pform("Collections not set for SwapTanks! Aborting!", Process.get_rtc().getTPlusMS(), Process.get_output_log())
             return False
         if len(self.collections) != len(self.tanks):
-            warn("Collections not set for SwapTanks!")
+            warn("Number of Tanks not equal to the number of Collections in SwapTanks!")
             Process.get_multiprint().pform("Number of Tanks not equal to the number of Collections in SwapTanks! Aborting!", Process.get_rtc().getTPlusMS(), Process.get_output_log())
             return False
         return True
