@@ -1,10 +1,11 @@
-import sys
 import os
 from enum import Enum
 from warnings import warn
 
 # Allow execution from 'pi' directory
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.absolute()))
 
 from pi.valve import Valve
 from pi.MPRLS import PressureSensor
@@ -75,8 +76,9 @@ class TankState(Enum):
     """
     UNKNOWN = 0
     UNSAFE = 1
-    UNREACHABLE = 2
-    LAST_RESORT = 3
-    READY = 4
-    FAILED_SAMPLE = 5
-    SAMPLED = 6
+    CRITICAL = 2
+    UNREACHABLE = 3
+    LAST_RESORT = 4
+    READY = 5
+    FAILED_SAMPLE = 6
+    SAMPLED = 7

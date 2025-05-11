@@ -5,20 +5,22 @@ import pytest
 from warnings import warn
 
 import sys
-sys.path.append('../../')
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.parent.absolute()))
 
 from pi.processes.process import Process, PlumbingState
 from pi.RTC import RTCFile
 from pi.MPRLS import MPRLSFile
+from pi.tank import Tank
 from tests.test_Tank import MockValve
 from pi.multiprint import MockMultiPrinter
 
-class MockTank:
+class MockTank(Tank):
     """Mock Tank class to simulate tanks with valves and sensors."""
     def __init__(self, name, filepath: str):
         self.valve = MockValve(10, name)
-        self.mprls = MPRLSFile(os.path.join(os.path.dirname(os.path.abspath(__file__)), filepath))
-        self.dead = False
+        self.pressure_sensor = MPRLSFile(os.path.join(os.path.dirname(os.path.abspath(__file__)), filepath))
+        super().__init__(self.valve, self.pressure_sensor)
 
 @pytest.fixture
 def mock_multiprint(monkeypatch):
@@ -72,11 +74,14 @@ def test_process_initialization():
     rtc = RTCFile(123456)
     log = tempfile.NamedTemporaryFile(mode='w+', suffix=".txt", delete=True)
     pressures = tempfile.NamedTemporaryFile(mode='w+', suffix=".txt", delete=True)
+    state = PlumbingState.READY
 
     Process.multiprint = multiprint
     Process.rtc = rtc
     Process.output_log = log
     Process.output_pressures = pressures
+    Process.plumbing_state = state
+
 
     assert Process.multiprint == multiprint
     assert Process.rtc == rtc

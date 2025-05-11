@@ -1,52 +1,12 @@
 import pytest
 import sys
-sys.path.append('../')
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.absolute()))
 
 import tempfile
 import os
 import time
 from pi.MPRLS import MPRLSFile, MPRLSWrappedSensor, MockPressureSensorStatic, NovaPressureSensor
-
-# -----------------------------------------
-# Dummy implementations for MPRLSWrappedSensor tests
-# These simulate the behavior of adafruit_mprls.MPRLS
-# -----------------------------------------
-
-# A dummy sensor to simulate a working MPRLS sensor
-class DummyMPRLSSensor:
-    def __init__(self, pressures):
-        # pressures is a list of values that will be returned sequentially
-        self._pressures = pressures
-        self._index = 0
-
-    @property
-    def pressure(self):
-        try:
-            value = self._pressures[self._index]
-        except IndexError:
-            value = self._pressures[-1]
-        self._index += 1
-        return value
-
-# A dummy sensor that raises an exception when reading pressure
-class DummyFailSensor:
-    @property
-    def pressure(self):
-        raise Exception("Simulated sensor error")
-
-# A dummy sensor that fails on one call in a sequence (for triple reading)
-class DummyPartialSensor:
-    def __init__(self):
-        self._values = [15.0, "raise", 17.0]
-        self._index = 0
-
-    @property
-    def pressure(self):
-        val = self._values[self._index]
-        self._index += 1
-        if val == "raise":
-            raise Exception("Simulated error")
-        return val
 
 # -----------------------------------------
 # Tests for MPRLSWrappedSensor
@@ -179,6 +139,12 @@ class DummyI2CChannel:
         # Fill the provided buffer with two bytes corresponding to raw_value.
         buf[0] = (self.raw_value >> 8) & 0xFF
         buf[1] = self.raw_value & 0xFF
+
+    def try_lock(self):
+        return True
+
+    def unlock(self):
+        pass
 
 class DummyI2CFailChannel:
     def readfrom_into(self, address, buf):
@@ -333,19 +299,11 @@ def test_nova_pressure_sensor_init_ready(monkeypatch):
     """
     Test the __init__ behavior of NovaPressureSensor.
     The constructor tries three times to set self.ready.
-    By simulating a channel that returns a raw value low enough (e.g. 5),
-    is_pressure_valid will return True (since 5 > 0 and 5 <= 30),
-    so ready should be set to True.
     (Note: this test exposes a quirk in the __init__ logic where raw values are
     used directly for validity.)
     """
-    class DummyI2CChannelReady:
-        def readfrom_into(self, address, buf):
-            # Simulate a raw value of 5 (which is <= PSI_MAX)
-            buf[0] = 0
-            buf[1] = 5  # raw value = 5
     monkeypatch.setattr(time, "sleep", lambda x: None)
-    channel = DummyI2CChannelReady()
+    channel = DummyI2CChannel(raw_value=1700)
     sensor = NovaPressureSensor(channel)
     assert sensor.ready is True
 
