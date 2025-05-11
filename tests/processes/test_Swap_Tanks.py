@@ -1,11 +1,11 @@
-import os
 import time
 import pytest
 import tempfile
 from warnings import warn
 
 import sys
-sys.path.append('../../')
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.parent.absolute()))
 
 from pi.processes.process_swap_tanks import SwapTanks
 from pi.processes.process import Process
