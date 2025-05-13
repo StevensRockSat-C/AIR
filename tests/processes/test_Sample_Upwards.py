@@ -449,6 +449,7 @@ def test_sample_success_during_tsmall(monkeypatch, setup_process, sample_upwards
     logs = Process.multiprint.logs[Process.output_log.name]
     assert      any("Sampled successfully" in log for log in logs)
     assert      any(f"Tank {tank.valve.name} pressure (800 hPa) did NOT meet final stag pressure ({collection.up_final_stagnation_pressure} hPa)!" in log for log in logs)
+    assert      any(f"Tank {tank.valve.name} pressure (1001 hPa) has met final stag pressure ({collection.up_final_stagnation_pressure} hPa) during t_small test. Sampled successfully" in log for log in logs)
     assert not  any(f"Try #2" in log for log in logs)
     assert tank.state == TankState.SAMPLED
 
@@ -475,6 +476,7 @@ def test_sample_success_second_try(monkeypatch, setup_process, sample_upwards_in
     logs = Process.multiprint.logs[Process.output_log.name]
     assert any("Sampled successfully" in log for log in logs)
     assert any(f"Tank {tank.valve.name} pressure (800 hPa) did NOT meet final stag pressure ({collection.up_final_stagnation_pressure} hPa)!" in log for log in logs)
+    assert any(f"Tank {tank.valve.name} pressure (900 hPa) did NOT meet final stag pressure ({collection.up_final_stagnation_pressure} hPa) during t_small test! Trying again" in log for log in logs)
     assert any("Try #2" in log for log in logs)
     assert tank.state == TankState.SAMPLED
 
@@ -502,7 +504,7 @@ def test_sample_fail_second_try(monkeypatch, setup_process, sample_upwards_insta
     logs = Process.multiprint.logs[Process.output_log.name]
     assert any("Failed sample" in log for log in logs)
     assert any(f"Tank {tank.valve.name} pressure (300 hPa) did NOT meet final stag pressure ({collection.up_final_stagnation_pressure} hPa)!" in log for log in logs)
-    assert any(f"Tank {tank.valve.name} pressure (300 -> 400 hPa) changed significantly during t_small test. This means that the valve chain is open, but the math on collection duration was wrong. Trying again" in log for log in logs)
+    assert any(f"Tank {tank.valve.name} pressure (300 -> 400 hPa) changed significantly during t_small test. This means that the valve chain is open, but the math on collection duration was wrong" in log for log in logs)
     assert any(f"Collection {collection.num} failed (Tank {tank.valve.name} {tank.state})!" in log for log in logs)
     assert any("Try #2" in log for log in logs)
     assert tank.state == TankState.FAILED_SAMPLE
@@ -689,7 +691,7 @@ def test_bleed_threshold_hit(monkeypatch, setup_process, sample_upwards_instance
     LogPressures.set_temp_thresh_reached(False)
     
     logs = Process.multiprint.logs[Process.output_log.name]
-    assert      any("Temp_thresh reached!" in log for log in logs)
+    assert      any("Temp threshold hit!" in log for log in logs)
     assert not  any(f"Try #2" in log for log in logs)
     assert tank.state == TankState.READY
 
@@ -725,9 +727,9 @@ def test_sampling_threshold_hit(monkeypatch, setup_process, sample_upwards_insta
     LogPressures.set_temp_thresh_reached(False)
     
     logs = Process.multiprint.logs[Process.output_log.name]
-    assert      any("Temp_thresh reached!" in log for log in logs)
+    assert      any("Temp threshold hit!" in log for log in logs)
     assert not  any(f"Try #2" in log for log in logs)
-    assert tank.state == TankState.READY
+    assert tank.state == TankState.FAILED_SAMPLE    # Vacuum was compromised
 
 def test_t_small_threshold_hit(monkeypatch, setup_process, sample_upwards_instance: SampleUpwards, mock_log_process: LogPressures):
     monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
@@ -763,9 +765,9 @@ def test_t_small_threshold_hit(monkeypatch, setup_process, sample_upwards_instan
     LogPressures.set_temp_thresh_reached(False)
     
     logs = Process.multiprint.logs[Process.output_log.name]
-    assert      any("Temp_thresh reached!" in log for log in logs)
+    assert      any("Temp threshold hit!" in log for log in logs)
     assert not  any(f"Try #2" in log for log in logs)
-    assert tank.state == TankState.READY
+    assert tank.state == TankState.FAILED_SAMPLE    # Vacuum was compromised
 
 def test_waiting_for_collection_threshold_hit(monkeypatch, setup_process, sample_upwards_instance: SampleUpwards, mock_log_process: LogPressures):
     monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
@@ -793,7 +795,8 @@ def test_waiting_for_collection_threshold_hit(monkeypatch, setup_process, sample
     LogPressures.set_temp_thresh_reached(False)
     
     logs = Process.multiprint.logs[Process.output_log.name]
-    assert      any("Temp_thresh reached!" in log for log in logs)
+    assert      any("Temp threshold hit!" in log for log in logs)
+    assert not  any(f"Beginning Collection {collection.num}" in log for log in logs) # Ensure we don't start sampling
     assert not  any(f"Try #2" in log for log in logs)
     assert tank.state == TankState.READY
 
@@ -856,7 +859,7 @@ def test_sample_fail_continual_flow_triple_pressure(monkeypatch, setup_process, 
     logs = Process.multiprint.logs[Process.output_log.name]
     assert      any("Failed sample" in log for log in logs)
     assert      any(f"Tank {tank.valve.name} pressure (300 hPa) did NOT meet final stag pressure ({collection.up_final_stagnation_pressure} hPa)!" in log for log in logs)
-    assert      any(f"Tank {tank.valve.name} pressure (300 -> 400 hPa) changed significantly during t_small test. This means that the valve chain is open, but the math on collection duration was wrong. Trying again" in log for log in logs)
+    assert      any(f"Tank {tank.valve.name} pressure (300 -> 400 hPa) changed significantly during t_small test. This means that the valve chain is open, but the math on collection duration was wrong" in log for log in logs)
     assert      any(f"Collection {collection.num} failed (Tank {tank.valve.name} {tank.state})!" in log for log in logs)
     assert      any("Try #2" in log for log in logs)
     assert not  any("201" in log for log in logs)

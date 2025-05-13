@@ -116,6 +116,10 @@ class SampleUpwards(Process):
                 LogPressures.set_currently_sampling(False)
                 while Process.get_rtc().getTPlusMS() < (c.up_start_time - c.bleed_duration): # Reached collection's time (c.up_start_time - c.bleed_duration)?
                     self.log_pressures.run()
+                    if self.log_pressures.get_temp_thresh_reached(): # Threshold hit?
+                        Process.get_multiprint().pform(f"Temp threshold hit! Aborting SampleUpwards.", 
+                                                    Process.get_rtc().getTPlusMS(), Process.get_output_log())
+                        return
 
             Process.get_multiprint().pform(f"Beginning Collection {c.num}", 
                                             Process.get_rtc().getTPlusMS(), Process.get_output_log())
@@ -144,6 +148,10 @@ class SampleUpwards(Process):
         LogPressures.set_currently_sampling(False)
         while Process.get_rtc().getTPlusMS() < (bleed_start_time + c.bleed_duration): #b time passed?
             self.log_pressures.run()
+            if self.log_pressures.get_temp_thresh_reached(): # Threshold hit?
+                Process.get_multiprint().pform(f"Temp threshold hit! Aborting SampleUpwards.", 
+                                            Process.get_rtc().getTPlusMS(), Process.get_output_log())
+                return
         del bleed_start_time    # Ensure this doesn't get accidentally reused
 
         self.static_valve.close() # Close VStatic
@@ -173,6 +181,11 @@ class SampleUpwards(Process):
             LogPressures.set_currently_sampling(True)
             while Process.get_rtc().getTPlusMS() < (sample_start_time + c.up_duration): #tc time passed?
                 self.log_pressures.run()
+                if self.log_pressures.get_temp_thresh_reached(): # Threshold hit?
+                    Process.get_multiprint().pform(f"Temp threshold hit! Aborting SampleUpwards.", 
+                                                Process.get_rtc().getTPlusMS(), Process.get_output_log())
+                    c.tank.state = TankState.FAILED_SAMPLE
+                    return
 
             # Close VDynamic, Vmain & Vtankx
             self.dynamic_valve.close()
@@ -225,6 +238,11 @@ class SampleUpwards(Process):
             LogPressures.set_currently_sampling(True)
             while Process.get_rtc().getTPlusMS() < (t_small_start_time + self.t_small): # tsmall time passed?
                 self.log_pressures.run()
+                if self.log_pressures.get_temp_thresh_reached(): # Threshold hit?
+                    Process.get_multiprint().pform(f"Temp threshold hit! Aborting SampleUpwards.", 
+                                                Process.get_rtc().getTPlusMS(), Process.get_output_log())
+                    c.tank.state = TankState.FAILED_SAMPLE
+                    return
             del t_small_start_time
 
             # Close VDynamic, Vmain & Vtankx
@@ -240,9 +258,19 @@ class SampleUpwards(Process):
                                             Process.get_rtc().getTPlusMS(), Process.get_output_log())
                 c.tank.state = TankState.FAILED_SAMPLE
                 return
-            else:
-                Process.get_multiprint().pform(f"Tank {c.tank.valve.name} pressure ({pre_t_small_tank_pressure} -> {post_t_small_tank_pressure} hPa) changed significantly during t_small test. This means that the valve chain is open, but the math on collection duration was wrong. Trying again",
+            else: # ΔPtank ≈ 0? (using triple pressure) No (valve chain is open, math on tx was wrong)
+                Process.get_multiprint().pform(f"Tank {c.tank.valve.name} pressure ({pre_t_small_tank_pressure} -> {post_t_small_tank_pressure} hPa) changed significantly during t_small test. This means that the valve chain is open, but the math on collection duration was wrong",
                                             Process.get_rtc().getTPlusMS(), Process.get_output_log())
+                
+                if post_t_small_tank_pressure >= 0.95 * c.up_final_stagnation_pressure: # Ptank ≥ 95% of pc? (using triple pressure) Yes (Reached desired pressure during tsmall test) 
+                    Process.get_multiprint().pform(f"Tank {c.tank.valve.name} pressure ({post_t_small_tank_pressure} hPa) has met final stag pressure ({c.up_final_stagnation_pressure} hPa) during t_small test. Sampled successfully",
+                                                Process.get_rtc().getTPlusMS(), Process.get_output_log())
+                    c.tank.state = TankState.SAMPLED
+                    return
+                
+                Process.get_multiprint().pform(f"Tank {c.tank.valve.name} pressure ({post_t_small_tank_pressure} hPa) did NOT meet final stag pressure ({c.up_final_stagnation_pressure} hPa) during t_small test! Trying again",
+                                            Process.get_rtc().getTPlusMS(), Process.get_output_log())
+
                 
     def cleanup(self):
         Process.get_multiprint().pform("Finished Sample Upwards.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
