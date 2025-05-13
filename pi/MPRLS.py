@@ -665,7 +665,7 @@ class MCP9600Thermocouple(TemperatureSensor):
         if self._cant_connect:
             return -1
         try:
-            return self._mcp.temperature
+            return self._mcp.temperature + 273.15
         except Exception:
             return -1
 
