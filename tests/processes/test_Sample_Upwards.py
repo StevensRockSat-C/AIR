@@ -6,7 +6,9 @@ from warnings import warn
 _original_time = time.time
 
 import sys
-sys.path.append('../../')
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.parent.absolute()))
+
 
 from pi.processes.process import Process, PlumbingState
 from pi.processes.process_sample_upwards import SampleUpwards
