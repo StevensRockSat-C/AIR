@@ -678,7 +678,7 @@ class MCP9600Thermocouple(TemperatureSensor):
         temperatures = []
         for _ in range(3):
             try:
-                temperatures.append(self._mcp.temperature + self._CELCIUS_TO_KELVIN) 
+                temperatures.append(self._mcp.temperature) 
             except Exception:
                 pass
-        return median(temperatures) if temperatures else -1
+        return median(temperatures) + self._CELCIUS_TO_KELVIN if temperatures else -1
