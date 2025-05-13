@@ -52,6 +52,7 @@ def test_mprlswrappedsensor_normal(monkeypatch):
     dummy_line = object()  # any dummy multiplexer line
     sensor = MPRLSWrappedSensor(dummy_line)
     assert sensor.cant_connect is False
+    assert sensor.ready is True
     # Single pressure reading should return 15.0.
     assert sensor.pressure == 15.0
     # Triple pressure reading calls the sensor three times, so the median of [15.0, 15.0, 15.0] is 15.0.
@@ -84,7 +85,9 @@ def test_mprlswrappedsensor_exception(monkeypatch):
     # In case of exceptions, both single and triple readings should return -1.
     assert sensor.pressure == -1
     assert sensor.triple_pressure == -1
-
+    # We connected, but the sensor is raising errors
+    assert sensor.ready is True
+    assert sensor.cant_connect is False
 
 def test_mprlswrappedsensor_partial(monkeypatch):
     """
@@ -177,6 +180,8 @@ def test_nova_pressure_sensor_valid_small(monkeypatch):
     pressure = sensor.pressure
     # Allow for a small floating-point tolerance.
     assert abs(pressure - expected_hpa) < 0.1
+    assert sensor.ready is True
+    assert sensor.cant_connect is False
 
 def test_nova_pressure_sensor_valid_large(monkeypatch):
     """
@@ -201,6 +206,8 @@ def test_nova_pressure_sensor_valid_large(monkeypatch):
     pressure = sensor.pressure
     # Allow for a small floating-point tolerance.
     assert abs(pressure - expected_hpa) < 0.1
+    assert sensor.ready is True
+    assert sensor.cant_connect is False
 
 def test_nova_pressure_sensor_valid_top_edge(monkeypatch):
     """
@@ -221,6 +228,8 @@ def test_nova_pressure_sensor_valid_top_edge(monkeypatch):
     pressure = sensor.pressure
     # Allow for a small floating-point tolerance.
     assert abs(pressure - expected_hpa) < 0.1
+    assert sensor.ready is True
+    assert sensor.cant_connect is False
 
 def test_nova_pressure_sensor_valid_bottom_edge(monkeypatch):
     """
@@ -241,6 +250,8 @@ def test_nova_pressure_sensor_valid_bottom_edge(monkeypatch):
     pressure = sensor.pressure
     # Allow for a small floating-point tolerance.
     assert abs(pressure - expected_hpa) < 0.1
+    assert sensor.ready is True
+    assert sensor.cant_connect is False
 
 def test_nova_pressure_sensor_invalid_top_edge(monkeypatch):
     """
@@ -255,6 +266,9 @@ def test_nova_pressure_sensor_invalid_top_edge(monkeypatch):
     pressure = sensor.pressure
     # Allow for a small floating-point tolerance.
     assert pressure == -1
+    # We were not able to read the data initially
+    assert sensor.ready is False
+    assert sensor.cant_connect is True
 
 def test_nova_pressure_sensor_invalid_bottom_edge(monkeypatch):
     """
@@ -269,6 +283,9 @@ def test_nova_pressure_sensor_invalid_bottom_edge(monkeypatch):
     pressure = sensor.pressure
     # Allow for a small floating-point tolerance.
     assert pressure == -1
+    # We were not able to read the data initially
+    assert sensor.ready is False
+    assert sensor.cant_connect is True
 
 def test_nova_pressure_sensor_triple(monkeypatch):
     """
@@ -283,6 +300,8 @@ def test_nova_pressure_sensor_triple(monkeypatch):
     expected_hpa = ((raw_value - sensor.P_MIN) * (sensor.PSI_MAX - sensor.PSI_MIN) / (sensor.P_MAX - sensor.P_MIN)) * sensor.PSI_TO_HPA
     triple = sensor.triple_pressure
     assert abs(triple - expected_hpa) < 0.1
+    assert sensor.ready is True
+    assert sensor.cant_connect is False
 
 def test_nova_pressure_sensor_failure(monkeypatch):
     """
@@ -294,6 +313,8 @@ def test_nova_pressure_sensor_failure(monkeypatch):
     sensor = NovaPressureSensor(channel)
     assert sensor.pressure == -1
     assert sensor.triple_pressure == -1
+    assert sensor.ready is False
+    assert sensor.cant_connect is True
 
 def test_nova_pressure_sensor_init_ready(monkeypatch):
     """
@@ -306,6 +327,7 @@ def test_nova_pressure_sensor_init_ready(monkeypatch):
     channel = DummyI2CChannel(raw_value=1700)
     sensor = NovaPressureSensor(channel)
     assert sensor.ready is True
+    assert sensor.cant_connect is False
 
 # -----------------------------------------
 # Tests for MPRLSFile implementation
@@ -322,6 +344,8 @@ def test_mprlsfile_initialization():
     sensor = MPRLSFile(temp_filename)
     assert sensor.file_path == temp_filename
     assert sensor.data == [10.5, 20.3, 30.7]
+    assert sensor.ready is True
+    assert sensor.cant_connect is False
     os.remove(temp_filename)
 
 def test_mprlsfile_empty_file():
@@ -332,6 +356,8 @@ def test_mprlsfile_empty_file():
     assert sensor.data == []
     assert sensor.pressure == -1
     assert sensor.triple_pressure == -1
+    assert sensor.ready is False
+    assert sensor.cant_connect is True
     os.remove(temp_filename)
 
 def test_mprlsfile_get_pressure():
@@ -365,6 +391,8 @@ def test_mprlsfile_corrupted_data():
     assert sensor.data == []  # Should handle parsing failure gracefully
     assert sensor.pressure == -1
     assert sensor.triple_pressure == -1
+    assert sensor.ready is False
+    assert sensor.cant_connect is True
     os.remove(temp_filename)
 
 # -----------------------------------------
@@ -375,22 +403,28 @@ def test_mock_pressure_sensor_static():
     sensor = MockPressureSensorStatic(pressure=15.0, triple_pressure=16.0)
     assert sensor.pressure == 15.0
     assert sensor.triple_pressure == 16.0
+    assert sensor.ready is True
+    assert sensor.cant_connect is False
 
 def test_mock_pressure_sensor_default_triple_pressure():
     sensor = MockPressureSensorStatic(pressure=20.0)
     assert sensor.pressure == 20.0
     assert sensor.triple_pressure == 20.0  # Defaults to same as pressure
+    assert sensor.ready is True
+    assert sensor.cant_connect is False
 
 def test_mock_pressure_sensor_no_connection():
     sensor = MockPressureSensorStatic(pressure=-1, triple_pressure=-1)
     assert sensor.pressure == -1
     assert sensor.triple_pressure == -1
+    assert sensor.ready is False
     assert sensor.cant_connect is True
 
 def test_mock_pressure_sensor_partial_connection():
     sensor = MockPressureSensorStatic(pressure=10.0, triple_pressure=-1)
     assert sensor.pressure == 10.0
     assert sensor.triple_pressure == -1
+    assert sensor.ready is False
     assert sensor.cant_connect is True
 
 def test_mock_pressure_sensor_changing_values():
@@ -403,3 +437,6 @@ def test_mock_pressure_sensor_changing_values():
     
     assert sensor.pressure == 5.0
     assert sensor.triple_pressure == 7.0
+    
+    assert sensor.ready is True
+    assert sensor.cant_connect is False
