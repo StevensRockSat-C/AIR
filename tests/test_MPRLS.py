@@ -6,7 +6,7 @@ sys.path.append(str(Path(__file__).parent.parent.absolute()))
 import tempfile
 import os
 import time
-from pi.MPRLS import MPRLSFile, MPRLSWrappedSensor, MockPressureSensorStatic, NovaPressureSensor
+from pi.MPRLS import MPRLSFile, MPRLSWrappedSensor, MockPressureSensorStatic, NovaPressureSensor, MCP9600Thermocouple
 
 # -----------------------------------------
 # Tests for MPRLSWrappedSensor
@@ -437,6 +437,126 @@ def test_mock_pressure_sensor_changing_values():
     
     assert sensor.pressure == 5.0
     assert sensor.triple_pressure == 7.0
-    
+
     assert sensor.ready is True
     assert sensor.cant_connect is False
+
+
+# -----------------------------------------
+# Tests for MCP9600Thermocouple
+# -----------------------------------------
+
+def test_MCP9600_no_multiplexer():
+    """
+    When no multiplexer_channel is provided, the sensor should mark itself as unable to connect.
+    """
+    sensor = MCP9600Thermocouple(multiplexer_channel=None)
+    assert sensor.cant_connect is True
+    assert sensor.temperature == -1
+    assert sensor.triple_temperature == -1
+
+def test_MCP9600_normal(monkeypatch):
+    """
+    Test normal operation by simulating a sensor that returns constant pressure.
+    We override the adafruit_mprls.MCP9600 class so that our DummyNormalAdafruitMCP9600 is used.
+    """
+    # Dummy adafruit mprls that simulates a working sensor returning temperaturess.
+    class DummyNormalAdafruitMCP9600:
+        def __init__(self, multiplexer_channel):
+            self._temperatures = [310.0, 310.0, 390.0, 340.0]
+            self._index = 0
+
+        @property
+        def temperature(self):
+            try:
+                value = self._temperatures[self._index]
+            except IndexError:
+                value = self._temperatures[-1]
+            self._index += 1
+            return value
+
+    # Dummy module to stand in for adafruit_mprls.
+    class DummyModule:
+        MCP9600 = DummyNormalAdafruitMCP9600
+
+    # Patch the module-level adafruit_mprls variable so that __init__ can create our dummy sensor.
+    import pi.MPRLS as mprls_module
+    monkeypatch.setattr(mprls_module, "adafruit_mcp9600", DummyModule)
+
+    dummy_line = object()  # any dummy multiplexer line
+    sensor = MCP9600Thermocouple(dummy_line)
+
+    assert sensor.cant_connect is False
+    # Single temperature reading should return 310.0.
+    assert sensor.temperature == 310.0
+    # Triple pressure reading calls the sensor three times, so the median of [310.0, 390.0, 340.0] is 340.0
+    assert sensor.triple_temperature == 340.0
+
+def test_MCP9600_exception(monkeypatch):
+    """
+    Simulate a sensor that always raises an exception on reading.
+    Both temperature and triple_temperature should return -1.
+    """
+    # Dummy sensor that always fails when reading pressure.
+    class DummyFailAdafruitMCP9600:
+        def __init__(self, multiplexer_channel):
+            pass
+
+        @property
+        def temperature(self):
+            raise Exception("Simulated sensor error")
+
+    class DummyModule:
+        # Return an instance of the failing sensor.
+        MCP9600 = lambda multiplexer_channel: DummyFailAdafruitMCP9600(multiplexer_channel)
+
+    # Patch the module-level adafruit_mprls variable so that __init__ can create our dummy sensor.
+    import pi.MPRLS as mprls_module
+    monkeypatch.setattr(mprls_module, "adafruit_mcp9600", DummyModule)
+
+    dummy_line = object()
+    sensor = MCP9600Thermocouple(dummy_line)
+    # In case of exceptions, both single and triple readings should return -1.
+    assert sensor.temperature == -1
+    assert sensor.triple_temperature == -1
+    # We connected, but the sensor is raising errors
+    assert sensor.cant_connect is False
+
+def test_MCP9600_partial(monkeypatch):
+    """
+    Simulate a sensor that returns a valid value on the first call, then fails on the second,
+    and returns another valid value on the third call. The triple reading should compute the median
+    over the valid readings.
+    """
+    class DummyRoughAdafruitMCP9600:
+        def __init__(self, multiplexer_channel):
+            self._values = [310.0, "raise", 350.0]
+            self._index = 0
+
+        @property
+        def temperature(self):
+            val = self._values[self._index]
+            self._index += 1
+            if val == "raise":
+                raise Exception("Simulated sensor error")
+            return val
+
+    class DummyModule:
+        MCP9600 = DummyRoughAdafruitMCP9600
+
+    # Patch the module-level adafruit_mprls variable so that __init__ can create our dummy sensor.
+    import pi.MPRLS as mprls_module
+    monkeypatch.setattr(mprls_module, "adafruit_mcp9600", DummyModule)
+
+    dummy_line = object()
+    sensor = MCP9600Thermocouple(dummy_line)
+    # The triple reading collects pressures: 310.0, (skips error), 350.0.
+    # The median of [310.0, 350.0] is 330.0.
+    assert sensor.triple_temperature == 330.0
+
+def test_MCP9600_no_lib(monkeypatch):
+    """Simulate a sensor that has no library available."""
+
+    dummy_line = object()
+    sensor = MCP9600Thermocouple(dummy_line)
+    assert sensor.cant_connect == True

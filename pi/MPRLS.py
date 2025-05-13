@@ -15,6 +15,11 @@ try:
 except ImportError:
     adafruit_mprls = None
 
+try:
+    import adafruit_mcp9600
+except ImportError:
+    adafruit_mcp9600 = None
+
 class PressureSensor(ABC):
     """Abstract base class for pressure sensors."""
     
@@ -80,12 +85,12 @@ class TemperatureSensor(ABC):
     @abstractmethod
     def temperature(self) -> float:
         """
-        Get the temperature in Celcius.
+        Get the temperature in Kelvin.
 
         Returns
         -------
         float
-            Temperature, in C. -1 if there's an error.
+            Temperature, in K. -1 if there's an error.
         """
         pass
 
@@ -98,7 +103,7 @@ class TemperatureSensor(ABC):
         Returns
         -------
         float
-            Median temperature, in C. -1 if all 3 reads failed.
+            Median temperature, in Kelvin. -1 if all 3 reads failed.
         """
         pass
 
@@ -116,7 +121,7 @@ class PressureTemperatureSensor(PressureSensor, TemperatureSensor):
         float
             Pressure, in hPa. -1 if there's an error.
         float
-            Temperature, in C. -1 if there's an error.
+            Temperature, in Kelvin. -1 if there's an error.
         """
         pass
 
@@ -131,7 +136,7 @@ class PressureTemperatureSensor(PressureSensor, TemperatureSensor):
         float
             Pressure, in hPa. -1 if all 3 reads failed.
         float
-            Temperature, in C. -1 if all 3 reads failed.
+            Temperature, in Kelvin. -1 if all 3 reads failed.
         """
         pass
 
@@ -622,3 +627,57 @@ class MockPressureTemperatureSensorStatic(PressureTemperatureSensor):
         Does nothing.
         """
         warn("You tried to set the pressure & temperature! There is something wrong with your implementation.")
+
+class MCP9600Thermocouple(TemperatureSensor):
+
+    def __init__(self, multiplexer_channel = None) -> None:
+        self._cant_connect = False
+        self._mcp = None
+        
+        if not multiplexer_channel:
+            self._cant_connect = True
+            return
+        
+        try:
+            if adafruit_mcp9600:
+                self._mcp = adafruit_mcp9600.MCP9600(multiplexer_channel)
+            else:
+                warn("Adafruit MCP9600 library not found!")
+                self._cant_connect = True
+        except:
+            self._cant_connect = True
+
+    @property
+    def cant_connect(self) -> bool:
+        """
+        Return whether the sensor is offline and unconnectable
+
+        Returns
+        -------
+        bool
+            True if there's a communication issue
+
+        """
+        return self._cant_connect
+    
+    @property
+    def temperature(self) -> float:
+        if self._cant_connect:
+            return -1
+        try:
+            return self._mcp.temperature
+        except Exception:
+            return -1
+
+    @property
+    def triple_temperature(self) -> float:
+        if self._cant_connect:
+            return -1
+        temperatures = []
+        for i in range(3):
+            try:
+                temperatures.append(self._mcp.temperature)
+            except Exception:
+                pass
+            if i < 2: time.sleep(0.001) # Assume 1 kHz sample rate
+        return median(temperatures) if temperatures else -1
