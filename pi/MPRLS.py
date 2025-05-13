@@ -46,6 +46,33 @@ class PressureSensor(ABC):
         """
         pass
 
+    @property
+    @abstractmethod
+    def ready(self) -> bool:
+        """
+        Return whether the sensor is online and ready
+
+        Returns
+        -------
+        bool
+            Whether the sensor can be read
+
+        """
+        pass
+
+    @property
+    def cant_connect(self) -> bool:
+        """
+        Return whether the sensor is offline and unconnectable
+
+        Returns
+        -------
+        bool
+            Opposite of :func:`ready`
+
+        """
+        return not self.ready
+
 class TemperatureSensor(ABC):
     """Temperature sensors"""
 
@@ -112,11 +139,11 @@ class MPRLSWrappedSensor(PressureSensor):
     """Handles real MPRLS hardware by wrapping the base MPRLS to enact soft error handling."""
     
     def __init__(self, multiplexer_line=None):
-        self.cant_connect = False
+        self._cant_connect = False
         self.mprls = None
         
         if not multiplexer_line:
-            self.cant_connect = True
+            self._cant_connect = True
             return
         
         try:
@@ -124,13 +151,13 @@ class MPRLSWrappedSensor(PressureSensor):
                 self.mprls = adafruit_mprls.MPRLS(multiplexer_line, psi_min=0, psi_max=25)
             else:
                 warn("Adafruit MPRLS library not found!")
-                self.cant_connect = True
+                self._cant_connect = True
         except:
-            self.cant_connect = True
+            self._cant_connect = True
     
     @property
     def pressure(self) -> float:
-        if self.cant_connect:
+        if self._cant_connect:
             return -1
         try:
             return self.mprls.pressure
@@ -139,7 +166,7 @@ class MPRLSWrappedSensor(PressureSensor):
     
     @property
     def triple_pressure(self) -> float:
-        if self.cant_connect:
+        if self._cant_connect:
             return -1
         pressures = []
         for i in range(3):
@@ -149,6 +176,10 @@ class MPRLSWrappedSensor(PressureSensor):
                 pass
             if i < 2: time.sleep(0.005) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
         return median(pressures) if pressures else -1
+    
+    @property
+    def ready(self) -> bool:
+        return not self._cant_connect
     
 
 class NovaPressureSensor(PressureTemperatureSensor):
@@ -167,10 +198,10 @@ class NovaPressureSensor(PressureTemperatureSensor):
     
     def __init__(self, channel):
         self.channel = channel
-        self.ready = False
+        self._ready = False
         for i in range(3):
             if (self._is_pressure_valid(self._convert_pressure_hpa(self._read_pressure_digital()))):
-                self.ready = True
+                self._ready = True
                 break
             time.sleep(0.01) # Wait 10 ms to see if i2c works again
     
@@ -275,6 +306,10 @@ class NovaPressureSensor(PressureTemperatureSensor):
         """
         pressure_psi = pressure_hpa / self.PSI_TO_HPA
         return (pressure_psi > self.PSI_MIN and pressure_psi <= self.PSI_MAX)
+    
+    @property
+    def ready(self) -> bool:
+        return self._ready
     
     @property
     def pressure(self) -> float:
@@ -399,16 +434,18 @@ class MPRLSFile(PressureSensor):
     
     def __init__(self, file_path):
         self.file_path = file_path
+        self._cant_connect = False
         self.data = self._load_data()
         self.index = 0
-        self.cant_connect = False
+        if not self.data:
+            self._cant_connect = True
     
     def _load_data(self):
         try:
             with open(self.file_path, 'r') as f:
                 return [float(line.strip()) for line in f.readlines()]
         except Exception as e:
-            self.cant_connect = True
+            self._cant_connect = True
             warn("You just tried to initialize an MPRLSFile with no data!\n" + str(e))
             return []
     
@@ -432,6 +469,10 @@ class MPRLSFile(PressureSensor):
         time.sleep(0.010) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
                           # Simulate 2 sleeps for reading from the actual sensor
         return median(pressures)
+    
+    @property
+    def ready(self) -> bool:
+        return not self._cant_connect
 
 class MockPressureSensorStatic(PressureSensor):
     """Mock PressureSensor class to simulate pressure readings which are constant for testing."""
@@ -444,9 +485,13 @@ class MockPressureSensorStatic(PressureSensor):
             self._triple_pressure_value = triple_pressure
             
         if self.pressure == -1 or self.triple_pressure == -1:
-            self.cant_connect = True
+            self._cant_connect = True
         else:
-            self.cant_connect = False
+            self._cant_connect = False
+
+    @property
+    def ready(self) -> bool:
+        return not self._cant_connect
 
     @property
     def pressure(self) -> float:
@@ -492,9 +537,13 @@ class MockPressureTemperatureSensorStatic(PressureTemperatureSensor):
 
             
         if self.pressure == -1 or self.triple_pressure == -1 or self.temperature == -1 or self.triple_temperature == -1:
-            self.cant_connect = True
+            self._cant_connect = True
         else:
-            self.cant_connect = False
+            self._cant_connect = False
+
+    @property
+    def ready(self) -> bool:
+        return not self._cant_connect
 
     @property
     def pressure(self) -> float:
