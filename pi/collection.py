@@ -1,10 +1,7 @@
 import sys
-import os
 from pathlib import Path
 
-# Allow execution from 'pi' directory
-if __name__ == "__main__":
-    sys.path.append(str(Path(__file__).parent.parent.absolute()))  
+sys.path.append(str(Path(__file__).parent.parent.absolute()))  
 
 from pi.MPRLS import PressureSensor
 from pi.tank import Tank, TankState
