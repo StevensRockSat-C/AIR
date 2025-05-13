@@ -463,7 +463,7 @@ def test_MCP9600_normal(monkeypatch):
     # Dummy adafruit mprls that simulates a working sensor returning temperaturess.
     class DummyNormalAdafruitMCP9600:
         def __init__(self, multiplexer_channel):
-            self._temperatures = [310.0, 310.0, 390.0, 340.0]
+            self._temperatures = [10.0, 10.0, 90.0, 40.0]
             self._index = 0
 
         @property
@@ -487,10 +487,10 @@ def test_MCP9600_normal(monkeypatch):
     sensor = MCP9600Thermocouple(dummy_line)
 
     assert sensor.cant_connect is False
-    # Single temperature reading should return 310.0.
-    assert sensor.temperature == 310.0
-    # Triple pressure reading calls the sensor three times, so the median of [310.0, 390.0, 340.0] is 340.0
-    assert sensor.triple_temperature == 340.0
+    # Single temperature reading should return 10.0 C -> 283.15 K.
+    assert sensor.temperature == 283.15
+    # Triple pressure reading calls the sensor three times, so the median of [10.0, 90.0, 40.0] is 40.0 -> 313.15
+    assert sensor.triple_temperature == 313.15
 
 def test_MCP9600_exception(monkeypatch):
     """
@@ -530,7 +530,7 @@ def test_MCP9600_partial(monkeypatch):
     """
     class DummyRoughAdafruitMCP9600:
         def __init__(self, multiplexer_channel):
-            self._values = [310.0, "raise", 350.0]
+            self._values = [10.0, "raise", 50.0]
             self._index = 0
 
         @property
@@ -550,9 +550,9 @@ def test_MCP9600_partial(monkeypatch):
 
     dummy_line = object()
     sensor = MCP9600Thermocouple(dummy_line)
-    # The triple reading collects pressures: 310.0, (skips error), 350.0.
-    # The median of [310.0, 350.0] is 330.0.
-    assert sensor.triple_temperature == 330.0
+    # The triple reading collects pressures: 10.0 C, (skips error), 50.0 C.
+    # The median of [10.0, 50.0] C is 30.0 -> 303.15 K.
+    assert sensor.triple_temperature == 303.15
 
 def test_MCP9600_no_lib(monkeypatch):
     """Simulate a sensor that has no library available."""

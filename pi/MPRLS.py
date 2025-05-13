@@ -630,6 +630,8 @@ class MockPressureTemperatureSensorStatic(PressureTemperatureSensor):
 
 class MCP9600Thermocouple(TemperatureSensor):
 
+    _CELCIUS_TO_KELVIN = 273.15
+
     def __init__(self, multiplexer_channel = None) -> None:
         self._cant_connect = False
         self._mcp = None
@@ -665,7 +667,7 @@ class MCP9600Thermocouple(TemperatureSensor):
         if self._cant_connect:
             return -1
         try:
-            return self._mcp.temperature + 273.15
+            return self._mcp.temperature + self._CELCIUS_TO_KELVIN
         except Exception:
             return -1
 
@@ -674,10 +676,9 @@ class MCP9600Thermocouple(TemperatureSensor):
         if self._cant_connect:
             return -1
         temperatures = []
-        for i in range(3):
+        for _ in range(3):
             try:
-                temperatures.append(self._mcp.temperature)
+                temperatures.append(self._mcp.temperature + self._CELCIUS_TO_KELVIN) 
             except Exception:
                 pass
-            if i < 2: time.sleep(0.001) # Assume 1 kHz sample rate
         return median(temperatures) if temperatures else -1
