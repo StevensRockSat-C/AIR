@@ -662,8 +662,6 @@ def test_bleed_threshold_hit(monkeypatch, setup_process, sample_upwards_instance
     mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
     Process.set_rtc(mock_rtc)
 
-    LogPressures.set_temp_thresh_reached(False)
-
     tank = MockTankWithDynamicPressure("A", pressure_single=[100,1234])
     tank.state = TankState.READY
     collection = Collection(
@@ -687,6 +685,8 @@ def test_bleed_threshold_hit(monkeypatch, setup_process, sample_upwards_instance
     sample_upwards_instance.set_manifold_pressure_sensor(MockPressureSensorStatic(1000, 1000))
 
     sample_upwards_instance.run()
+
+    LogPressures.set_temp_thresh_reached(False)
     
     logs = Process.multiprint.logs[Process.output_log.name]
     assert      any("Temp_thresh reached!" in log for log in logs)
@@ -697,8 +697,6 @@ def test_sampling_threshold_hit(monkeypatch, setup_process, sample_upwards_insta
     monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
     mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
     Process.set_rtc(mock_rtc)
-
-    LogPressures.set_temp_thresh_reached(False)
 
     tank = MockTankWithDynamicPressure("A", pressure_single=[100,1234])
     tank.state = TankState.READY
@@ -723,6 +721,8 @@ def test_sampling_threshold_hit(monkeypatch, setup_process, sample_upwards_insta
     sample_upwards_instance.set_manifold_pressure_sensor(MockPressureSensorStatic(1000, 1000))
 
     sample_upwards_instance.run()
+
+    LogPressures.set_temp_thresh_reached(False)
     
     logs = Process.multiprint.logs[Process.output_log.name]
     assert      any("Temp_thresh reached!" in log for log in logs)
@@ -733,8 +733,6 @@ def test_t_small_threshold_hit(monkeypatch, setup_process, sample_upwards_instan
     monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
     mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
     Process.set_rtc(mock_rtc)
-
-    LogPressures.set_temp_thresh_reached(False)
 
     tank = MockTankWithDynamicPressure("A", pressure_single=[100,800,900,1300])
     tank.state = TankState.READY
@@ -761,6 +759,8 @@ def test_t_small_threshold_hit(monkeypatch, setup_process, sample_upwards_instan
     sample_upwards_instance.set_manifold_pressure_sensor(MockPressureSensorStatic(1000, 1000))
 
     sample_upwards_instance.run()
+
+    LogPressures.set_temp_thresh_reached(False)
     
     logs = Process.multiprint.logs[Process.output_log.name]
     assert      any("Temp_thresh reached!" in log for log in logs)
@@ -771,8 +771,6 @@ def test_waiting_for_collection_threshold_hit(monkeypatch, setup_process, sample
     monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
     mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
     Process.set_rtc(mock_rtc)
-
-    LogPressures.set_temp_thresh_reached(False)
 
     tank = MockTankWithStaticPressure("A", pressure_single=100)
     tank.state = TankState.READY
@@ -791,8 +789,162 @@ def test_waiting_for_collection_threshold_hit(monkeypatch, setup_process, sample
     sample_upwards_instance.set_manifold_pressure_sensor(MockPressureSensorStatic(1000, 1000))
 
     sample_upwards_instance.run()
+
+    LogPressures.set_temp_thresh_reached(False)
     
     logs = Process.multiprint.logs[Process.output_log.name]
     assert      any("Temp_thresh reached!" in log for log in logs)
     assert not  any(f"Try #2" in log for log in logs)
     assert tank.state == TankState.READY
+
+# -----------------------------------------
+# Tests for triple pressure
+# -----------------------------------------
+
+def test_sample_success_first_try_triple_pressure(monkeypatch, setup_process, sample_upwards_instance: SampleUpwards, mock_log_process: LogPressures):
+    """Ptank ≥ 95% of pc? (using triple pressure)"""
+    monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
+    mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
+    Process.set_rtc(mock_rtc)
+
+    tank = MockTankWithDynamicPressure("A", pressure_single=[100,900], pressure_triple=[100,1234])
+    tank.state = TankState.READY
+    collection = Collection(
+        num=1, up_start_time=15500, bleed_duration=10, up_driving_pressure=3290,
+        up_final_stagnation_pressure=1000, choke_pressure=900, up_duration=10, tank=tank
+    )
+    sample_upwards_instance.set_log_pressures(mock_log_process)
+    sample_upwards_instance.set_collections([collection])
+    sample_upwards_instance.set_main_valve(MockValve(1, "Main"))
+    sample_upwards_instance.set_dynamic_valve(MockValve(2, "Dynamic"))
+    sample_upwards_instance.set_static_valve(MockValve(3, "Static"))
+    sample_upwards_instance.set_manifold_pressure_sensor(MockPressureSensorStatic(1000, 1000))
+
+    sample_upwards_instance.run()
+    
+    logs = Process.multiprint.logs[Process.output_log.name]
+    assert      any("Sampled successfully" in log for log in logs)
+    assert      any(f"Tank {tank.valve.name} pressure (1234 hPa) has met final stag pressure ({collection.up_final_stagnation_pressure} hPa)." in log for log in logs)
+    assert      any(f"Collection {collection.num} succeeded (Tank {tank.valve.name} {tank.state})!" in log for log in logs)
+    assert not  any(f"Try #2" in log for log in logs)
+    assert tank.state == TankState.SAMPLED
+
+def test_sample_fail_continual_flow_triple_pressure(monkeypatch, setup_process, sample_upwards_instance: SampleUpwards, mock_log_process: LogPressures):
+    """
+        Δ Ptank ≈ 0? (using triple pressure)
+        No (valvex is operational)(tank has been opened to the manifold)
+    """
+    monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
+    mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
+    Process.set_rtc(mock_rtc)
+
+    tank = MockTankWithDynamicPressure("A", pressure_single=[200,201,202,203], pressure_triple=[200,300,400,500])
+    tank.state = TankState.READY
+    collection = Collection(
+        num=1, up_start_time=0, bleed_duration=10, up_driving_pressure=1000,
+        up_final_stagnation_pressure=1000, choke_pressure=900, up_duration=10, tank=tank
+    )
+    sample_upwards_instance.set_log_pressures(mock_log_process)
+    sample_upwards_instance.set_collections([collection])
+    sample_upwards_instance.set_main_valve(MockValve(1, "Main"))
+    sample_upwards_instance.set_dynamic_valve(MockValve(2, "Dynamic"))
+    sample_upwards_instance.set_static_valve(MockValve(3, "Static"))
+    sample_upwards_instance.set_manifold_pressure_sensor(MockPressureSensorStatic(800, 800))
+
+    sample_upwards_instance.run()
+    
+    logs = Process.multiprint.logs[Process.output_log.name]
+    assert      any("Failed sample" in log for log in logs)
+    assert      any(f"Tank {tank.valve.name} pressure (300 hPa) did NOT meet final stag pressure ({collection.up_final_stagnation_pressure} hPa)!" in log for log in logs)
+    assert      any(f"Tank {tank.valve.name} pressure (300 -> 400 hPa) changed significantly during t_small test. This means that the valve chain is open, but the math on collection duration was wrong. Trying again" in log for log in logs)
+    assert      any(f"Collection {collection.num} failed (Tank {tank.valve.name} {tank.state})!" in log for log in logs)
+    assert      any("Try #2" in log for log in logs)
+    assert not  any("201" in log for log in logs)
+    assert not  any("202" in log for log in logs)
+    assert tank.state == TankState.FAILED_SAMPLE
+
+def test_sample_fail_continual_flow_triple_pressure(monkeypatch, setup_process, sample_upwards_instance: SampleUpwards, mock_log_process: LogPressures):
+    """
+        Δ Ptank ≈ 0? (using triple pressure)
+        Yes (Vacuum of tank was compromised, but questionable sample)
+    """
+    monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
+    mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
+    Process.set_rtc(mock_rtc)
+
+    tank = MockTankWithDynamicPressure("A", pressure_single=[200,300,500,800], pressure_triple=[200,299,301])
+    tank.state = TankState.READY
+    collection = Collection(
+        num=1, up_start_time=0, bleed_duration=10, up_driving_pressure=1000,
+        up_final_stagnation_pressure=1000, choke_pressure=900, up_duration=10, tank=tank
+    )
+    sample_upwards_instance.set_log_pressures(mock_log_process)
+    sample_upwards_instance.set_collections([collection])
+    sample_upwards_instance.set_main_valve(MockValve(1, "Main"))
+    sample_upwards_instance.set_dynamic_valve(MockValve(2, "Dynamic"))
+    sample_upwards_instance.set_static_valve(MockValve(3, "Static"))
+    sample_upwards_instance.set_manifold_pressure_sensor(MockPressureSensorStatic(800, 800))
+
+    sample_upwards_instance.run()
+    
+    logs = Process.multiprint.logs[Process.output_log.name]
+    assert      any(f"Tank {tank.valve.name} pressure (299 hPa) did NOT meet final stag pressure ({collection.up_final_stagnation_pressure} hPa)!" in log for log in logs)
+    assert      any(f"Tank {tank.valve.name} pressure (299 -> 301 hPa) did not change significantly during t_small test. This means that the vacuum of Tank {tank.valve.name} was compromised, but the sample is questionable. Failed Sample!" in log for log in logs)
+    assert      any(f"Collection {collection.num} failed (Tank {tank.valve.name} {tank.state})!" in log for log in logs)
+    assert not  any("Try #2" in log for log in logs)
+    assert not  any("300" in log for log in logs)
+    assert not  any("500" in log for log in logs)
+    assert tank.state == TankState.FAILED_SAMPLE
+
+def test_sample_valve_failure_triple_pressure(monkeypatch, setup_process, sample_upwards_instance: SampleUpwards, mock_log_process: LogPressures):
+    """ΔPtank ≈ 0 and ΔPmanifold ≠ 0."""
+    monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
+    mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
+    Process.set_rtc(mock_rtc)
+    
+    tank = MockTankWithDynamicPressure("A", pressure_single=[200, 500, 1000, 1500], pressure_triple=100)
+    tank.state = TankState.READY
+    collection = Collection(
+        num=1, up_start_time=15500, bleed_duration=10, up_driving_pressure=1000,
+        up_final_stagnation_pressure=1000, choke_pressure=900, up_duration=10, tank=tank
+    )
+    sample_upwards_instance.set_log_pressures(mock_log_process)
+    sample_upwards_instance.set_collections([collection])
+    sample_upwards_instance.set_main_valve(MockValve(1, "Main"))
+    sample_upwards_instance.set_dynamic_valve(MockValve(2, "Dynamic"))
+    sample_upwards_instance.set_static_valve(MockValve(3, "Static"))
+    sample_upwards_instance.set_manifold_pressure_sensor(MPRLSList([800, 810, 820, 870, 880, 890]))
+
+    sample_upwards_instance.run()
+
+    logs = Process.multiprint.logs[Process.output_log.name]
+    assert      any(f"Tank {tank.valve.name} pressure (100 hPa) did NOT meet final stag pressure ({collection.up_final_stagnation_pressure} hPa)!" in log for log in logs)
+    assert      any(f"Tank {tank.valve.name} pressure (100 -> 100 hPa) did not change significantly but the manifold pressure did (810.0 -> 880.0 hPa). Valve for Tank {tank.valve.name} must have failed!" in log for log in logs)
+    assert not  any(f"Try #2" in log for log in logs)
+    assert tank.state == TankState.FAILED_SAMPLE
+
+def test_sample_main_line_failure_triple_pressure(monkeypatch, setup_process, sample_upwards_instance: SampleUpwards, mock_log_process: LogPressures):
+    """ΔPtank ≈ 0 and ΔPmanifold ≈ 0."""
+    monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
+    mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
+    Process.set_rtc(mock_rtc)
+    
+    tank = MockTankWithStaticPressure("A", pressure_single=100)
+    tank.state = TankState.READY
+    collection = Collection(
+        num=1, up_start_time=15500, bleed_duration=10, up_driving_pressure=1000,
+        up_final_stagnation_pressure=1000, choke_pressure=900, up_duration=10, tank=tank
+    )
+    sample_upwards_instance.set_log_pressures(mock_log_process)
+    sample_upwards_instance.set_collections([collection])
+    sample_upwards_instance.set_main_valve(MockValve(1, "Main"))
+    sample_upwards_instance.set_dynamic_valve(MockValve(2, "Dynamic"))
+    sample_upwards_instance.set_static_valve(MockValve(3, "Static"))
+    sample_upwards_instance.set_manifold_pressure_sensor(MockPressureSensorStatic(2000, 800))
+
+    sample_upwards_instance.run()
+
+    logs = Process.multiprint.logs[Process.output_log.name]
+    assert      any(f"Tank {tank.valve.name} pressure (100 -> 100 hPa) and manifold pressure (800 -> 800 hPa) did not change significantly. There must be a main line failure!" in log for log in logs)
+    assert not  any(f"Try #2" in log for log in logs)
+    assert Process.get_plumbing_state() == PlumbingState.MAIN_LINE_FAILURE
