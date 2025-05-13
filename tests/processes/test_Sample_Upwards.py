@@ -419,6 +419,7 @@ def test_sample_success_first_try(monkeypatch, setup_process, sample_upwards_ins
     logs = Process.multiprint.logs[Process.output_log.name]
     assert      any("Sampled successfully" in log for log in logs)
     assert      any(f"Tank {tank.valve.name} pressure (1234 hPa) has met final stag pressure ({collection.up_final_stagnation_pressure} hPa)." in log for log in logs)
+    assert      any(f"Collection {collection.num} succeeded (Tank {tank.valve.name} {tank.state})!" in log for log in logs)
     assert not  any(f"Try #2" in log for log in logs)
     assert tank.state == TankState.SAMPLED
 
@@ -500,6 +501,7 @@ def test_sample_fail_second_try(monkeypatch, setup_process, sample_upwards_insta
     assert any("Failed sample" in log for log in logs)
     assert any(f"Tank {tank.valve.name} pressure (300 hPa) did NOT meet final stag pressure ({collection.up_final_stagnation_pressure} hPa)!" in log for log in logs)
     assert any(f"Tank {tank.valve.name} pressure (300 -> 400 hPa) changed significantly during t_small test. This means that the valve chain is open, but the math on collection duration was wrong. Trying again" in log for log in logs)
+    assert any(f"Collection {collection.num} failed (Tank {tank.valve.name} {tank.state})!" in log for log in logs)
     assert any("Try #2" in log for log in logs)
     assert tank.state == TankState.FAILED_SAMPLE
 
@@ -752,6 +754,36 @@ def test_t_small_threshold_hit(monkeypatch, setup_process, sample_upwards_instan
     sample_upwards_instance.set_log_pressures(mock_log_process)
     sample_upwards_instance.set_collections([collection])
     sample_upwards_instance.set_main_valve(MockValveTempThresh(1, "Main"))
+    sample_upwards_instance.set_dynamic_valve(MockValve(2, "Dynamic"))
+    sample_upwards_instance.set_static_valve(MockValve(3, "Static"))
+    sample_upwards_instance.set_manifold_pressure_sensor(MockPressureSensorStatic(1000, 1000))
+
+    sample_upwards_instance.run()
+    
+    logs = Process.multiprint.logs[Process.output_log.name]
+    assert      any("Temp_thresh reached!" in log for log in logs)
+    assert not  any(f"Try #2" in log for log in logs)
+    assert tank.state == TankState.READY
+
+def test_waiting_for_collection_threshold_hit(monkeypatch, setup_process, sample_upwards_instance: SampleUpwards, mock_log_process: LogPressures):
+    monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
+    mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
+    Process.set_rtc(mock_rtc)
+
+    LogPressures.set_temp_thresh_reached(False)
+
+    tank = MockTankWithStaticPressure("A", pressure_single=100)
+    tank.state = TankState.READY
+    collection = Collection(
+        num=1, up_start_time=15500, bleed_duration=10, up_driving_pressure=3290,
+        up_final_stagnation_pressure=1000, choke_pressure=900, up_duration=10, tank=tank
+    )
+
+    monkeypatch.setattr(LogPressures, "execute", lambda c: LogPressures.set_temp_thresh_reached(True))
+    
+    sample_upwards_instance.set_log_pressures(mock_log_process)
+    sample_upwards_instance.set_collections([collection])
+    sample_upwards_instance.set_main_valve(MockValve(1, "Main"))
     sample_upwards_instance.set_dynamic_valve(MockValve(2, "Dynamic"))
     sample_upwards_instance.set_static_valve(MockValve(3, "Static"))
     sample_upwards_instance.set_manifold_pressure_sensor(MockPressureSensorStatic(1000, 1000))

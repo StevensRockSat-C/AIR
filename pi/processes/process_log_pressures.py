@@ -27,8 +27,8 @@ class LogPressures(Process):
     
     @classmethod
     def set_temp_thresh_reached(cls, reached: bool):
+        if not cls._temp_thresh_reached and reached: print("TMP THRESH REACHED")
         cls._temp_thresh_reached = reached
-        if reached: print("TMP THRESH REACHED")
 
     @classmethod
     def get_currently_sampling(cls):
