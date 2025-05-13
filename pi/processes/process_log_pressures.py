@@ -28,6 +28,7 @@ class LogPressures(Process):
     @classmethod
     def set_temp_thresh_reached(cls, reached: bool):
         cls._temp_thresh_reached = reached
+        if reached: print("TMP THRESH REACHED")
 
     @classmethod
     def get_currently_sampling(cls):
@@ -78,7 +79,6 @@ class LogPressures(Process):
         output_pressures = str(Process.get_rtc().getTPlusMS()) + ","
 
         if LogPressures.get_temp_thresh_reached():
-            print("TMP THRESH REACHED")
             for pressure_sensor in self.pressure_temperature_sensors:
                 output_pressures += str(pressure_sensor.pressure) + ","
             

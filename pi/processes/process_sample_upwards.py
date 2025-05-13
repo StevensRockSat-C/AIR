@@ -82,6 +82,12 @@ class SampleUpwards(Process):
             Process.get_multiprint().pform("Manifold Pressure Sensor not set for SampleUpwards! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
             warn("Manifold Pressure Sensor not set for SampleUpwards!")
             return False
+        
+        if self.log_pressures.get_temp_thresh_reached():
+            Process.get_multiprint().pform("Temp threshold was reached before SampleUpwards! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+            warn("Temp threshold was reached before SampleUpwards!")
+            return False
+
         return True
 
     def execute(self):
@@ -124,7 +130,6 @@ class SampleUpwards(Process):
                                             Process.get_rtc().getTPlusMS(), Process.get_output_log())
                 
     def _do_sample_collection(self, c: Collection) -> None:
-        # TODO: Sample lmao
         Process.get_multiprint().pform(f"Bleeding for {c.bleed_duration}ms", 
                                             Process.get_rtc().getTPlusMS(), Process.get_output_log())
         
