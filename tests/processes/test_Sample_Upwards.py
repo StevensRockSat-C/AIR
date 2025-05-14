@@ -879,7 +879,7 @@ def test_sample_fail_continual_flow_t_small_unchanged_triple_pressure(monkeypatc
     mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
     Process.set_rtc(mock_rtc)
 
-    tank = MockTankWithDynamicPressure("A", pressure_single=[200,310,501,800], pressure_triple=[200,299,301])
+    tank = MockTankWithDynamicPressure("A", pressure_single=[200,310,601.2,800], pressure_triple=[200,299,301])
     tank.state = TankState.READY
     collection = Collection(
         num=1, up_start_time=0, bleed_duration=10, up_driving_pressure=1000,
@@ -900,7 +900,7 @@ def test_sample_fail_continual_flow_t_small_unchanged_triple_pressure(monkeypatc
     assert      any(f"Collection {collection.num} failed (Tank {tank.valve.name} {tank.state})!" in log for log in logs)
     assert not  any("Try #2" in log for log in logs)
     assert not  any("310" in log for log in logs)
-    assert not  any("501" in log for log in logs)
+    assert not  any("601.2" in log for log in logs)
     assert tank.state == TankState.FAILED_SAMPLE
 
 def test_sample_valve_failure_triple_pressure(monkeypatch, setup_process, sample_upwards_instance: SampleUpwards, mock_log_process: LogPressures):
