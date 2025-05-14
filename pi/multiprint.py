@@ -3,6 +3,10 @@ import os
 from abc import ABC, abstractmethod
 from tempfile import _TemporaryFileWrapper
 
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.absolute()))
+
 class MultiPrinterAbstract(ABC):
     @abstractmethod
     def p(self, message, f):
@@ -76,7 +80,6 @@ class MockMultiPrinter(MultiPrinterAbstract):
         """
         if f.name not in self.logs:
             self.logs[f.name] = []
-        print(message)
         self.logs[f.name].append(message)
 
     def w(self, message, f: _TemporaryFileWrapper):

@@ -5,10 +5,20 @@ import time
 from statistics import median
 from warnings import warn
 from typing import Optional
+
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.absolute()))
+
 try:
     import adafruit_mprls
 except ImportError:
     adafruit_mprls = None
+
+try:
+    import adafruit_mcp9600
+except ImportError:
+    adafruit_mcp9600 = None
 
 class PressureSensor(ABC):
     """Abstract base class for pressure sensors."""
@@ -41,6 +51,33 @@ class PressureSensor(ABC):
         """
         pass
 
+    @property
+    @abstractmethod
+    def ready(self) -> bool:
+        """
+        Return whether the sensor is online and ready
+
+        Returns
+        -------
+        bool
+            Whether the sensor can be read
+
+        """
+        pass
+
+    @property
+    def cant_connect(self) -> bool:
+        """
+        Return whether the sensor is offline and unconnectable
+
+        Returns
+        -------
+        bool
+            Opposite of :func:`ready`
+
+        """
+        return not self.ready
+
 class TemperatureSensor(ABC):
     """Temperature sensors"""
 
@@ -48,12 +85,12 @@ class TemperatureSensor(ABC):
     @abstractmethod
     def temperature(self) -> float:
         """
-        Get the temperature in Celcius.
+        Get the temperature in Kelvin.
 
         Returns
         -------
         float
-            Temperature, in C. -1 if there's an error.
+            Temperature, in K. -1 if there's an error.
         """
         pass
 
@@ -66,7 +103,7 @@ class TemperatureSensor(ABC):
         Returns
         -------
         float
-            Median temperature, in C. -1 if all 3 reads failed.
+            Median temperature, in Kelvin. -1 if all 3 reads failed.
         """
         pass
 
@@ -84,7 +121,7 @@ class PressureTemperatureSensor(PressureSensor, TemperatureSensor):
         float
             Pressure, in hPa. -1 if there's an error.
         float
-            Temperature, in C. -1 if there's an error.
+            Temperature, in Kelvin. -1 if there's an error.
         """
         pass
 
@@ -99,7 +136,7 @@ class PressureTemperatureSensor(PressureSensor, TemperatureSensor):
         float
             Pressure, in hPa. -1 if all 3 reads failed.
         float
-            Temperature, in C. -1 if all 3 reads failed.
+            Temperature, in Kelvin. -1 if all 3 reads failed.
         """
         pass
 
@@ -107,11 +144,11 @@ class MPRLSWrappedSensor(PressureSensor):
     """Handles real MPRLS hardware by wrapping the base MPRLS to enact soft error handling."""
     
     def __init__(self, multiplexer_line=None):
-        self.cant_connect = False
+        self._cant_connect = False
         self.mprls = None
         
         if not multiplexer_line:
-            self.cant_connect = True
+            self._cant_connect = True
             return
         
         try:
@@ -119,13 +156,13 @@ class MPRLSWrappedSensor(PressureSensor):
                 self.mprls = adafruit_mprls.MPRLS(multiplexer_line, psi_min=0, psi_max=25)
             else:
                 warn("Adafruit MPRLS library not found!")
-                self.cant_connect = True
+                self._cant_connect = True
         except:
-            self.cant_connect = True
+            self._cant_connect = True
     
     @property
     def pressure(self) -> float:
-        if self.cant_connect:
+        if self._cant_connect:
             return -1
         try:
             return self.mprls.pressure
@@ -134,7 +171,7 @@ class MPRLSWrappedSensor(PressureSensor):
     
     @property
     def triple_pressure(self) -> float:
-        if self.cant_connect:
+        if self._cant_connect:
             return -1
         pressures = []
         for i in range(3):
@@ -144,6 +181,10 @@ class MPRLSWrappedSensor(PressureSensor):
                 pass
             if i < 2: time.sleep(0.005) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
         return median(pressures) if pressures else -1
+    
+    @property
+    def ready(self) -> bool:
+        return not self._cant_connect
     
 
 class NovaPressureSensor(PressureTemperatureSensor):
@@ -162,10 +203,10 @@ class NovaPressureSensor(PressureTemperatureSensor):
     
     def __init__(self, channel):
         self.channel = channel
-        self.ready = False
+        self._ready = False
         for i in range(3):
             if (self._is_pressure_valid(self._convert_pressure_hpa(self._read_pressure_digital()))):
-                self.ready = True
+                self._ready = True
                 break
             time.sleep(0.01) # Wait 10 ms to see if i2c works again
     
@@ -270,6 +311,10 @@ class NovaPressureSensor(PressureTemperatureSensor):
         """
         pressure_psi = pressure_hpa / self.PSI_TO_HPA
         return (pressure_psi > self.PSI_MIN and pressure_psi <= self.PSI_MAX)
+    
+    @property
+    def ready(self) -> bool:
+        return self._ready
     
     @property
     def pressure(self) -> float:
@@ -394,16 +439,19 @@ class MPRLSFile(PressureSensor):
     
     def __init__(self, file_path):
         self.file_path = file_path
+        self._cant_connect = False
         self.data = self._load_data()
         self.index = 0
-        self.cant_connect = False
+        if not self.data:
+            self._cant_connect = True
     
     def _load_data(self):
         try:
             with open(self.file_path, 'r') as f:
                 return [float(line.strip()) for line in f.readlines()]
-        except Exception:
-            self.cant_connect = True
+        except Exception as e:
+            self._cant_connect = True
+            warn("You just tried to initialize an MPRLSFile with no data!\n" + str(e))
             return []
     
     @property
@@ -413,8 +461,8 @@ class MPRLSFile(PressureSensor):
         try:
             value = self.data[self.index]
         except IndexError:
+            warn("MPRLSFile get_pressure: reached EOF")
             return -1
-            print("MPRLSFile get_pressure: reached EOF")
         self.index = self.index + 1
         return value
     
@@ -426,6 +474,10 @@ class MPRLSFile(PressureSensor):
         time.sleep(0.010) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
                           # Simulate 2 sleeps for reading from the actual sensor
         return median(pressures)
+    
+    @property
+    def ready(self) -> bool:
+        return not self._cant_connect
 
 class MockPressureSensorStatic(PressureSensor):
     """Mock PressureSensor class to simulate pressure readings which are constant for testing."""
@@ -438,9 +490,13 @@ class MockPressureSensorStatic(PressureSensor):
             self._triple_pressure_value = triple_pressure
             
         if self.pressure == -1 or self.triple_pressure == -1:
-            self.cant_connect = True
+            self._cant_connect = True
         else:
-            self.cant_connect = False
+            self._cant_connect = False
+
+    @property
+    def ready(self) -> bool:
+        return not self._cant_connect
 
     @property
     def pressure(self) -> float:
@@ -457,7 +513,7 @@ class MockPressureSensorStatic(PressureSensor):
     @property
     def triple_pressure(self) -> float:
         """Simulate getting a median of three pressure readings."""
-        time.sleep(0.010) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
+        time.sleep(0.001) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
                           # Simulate 2 sleeps for reading from the actual sensor
         return self._triple_pressure_value
     
@@ -467,3 +523,162 @@ class MockPressureSensorStatic(PressureSensor):
         Does nothing.
         """
         warn("You tried to set the pressure! There is something wrong with your implementation.")
+
+class MockPressureTemperatureSensorStatic(PressureTemperatureSensor):
+    """Mock PressureSensor class to simulate pressure readings which are constant for testing."""
+
+    def __init__(self, pressure: float, temperature: float, triple_pressure: Optional[float] = None, triple_temperature: Optional[float] = None):
+        self._pressure_value = pressure
+        if triple_pressure is None:
+            self._triple_pressure_value = pressure
+        else:
+            self._triple_pressure_value = triple_pressure
+
+        self._temperature_value = temperature
+        if triple_temperature is None:
+            self._triple_temperature_value = temperature
+        else:
+            self._triple_temperature_value = triple_temperature
+
+            
+        if self.pressure == -1 or self.triple_pressure == -1 or self.temperature == -1 or self.triple_temperature == -1:
+            self._cant_connect = True
+        else:
+            self._cant_connect = False
+
+    @property
+    def ready(self) -> bool:
+        return not self._cant_connect
+
+    @property
+    def pressure(self) -> float:
+        """Simulate getting a single pressure reading."""
+        return self._pressure_value
+    
+    @pressure.setter
+    def pressure(self, value):
+        """
+        Does nothing.
+        """
+        warn("You tried to set the pressure! There is something wrong with your implementation.")
+
+    @property
+    def triple_pressure(self) -> float:
+        """Simulate getting a median of three pressure readings."""
+        time.sleep(0.001) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
+                          # Simulate 2 sleeps for reading from the actual sensor
+        return self._triple_pressure_value
+    
+    @triple_pressure.setter
+    def triple_pressure(self, value):
+        """
+        Does nothing.
+        """
+        warn("You tried to set the pressure! There is something wrong with your implementation.")
+        
+    @property
+    def temperature(self) -> float:
+        """Simulate getting a single temperature reading."""
+        return self._temperature_value
+    
+    @temperature.setter
+    def temperature(self, value):
+        """
+        Does nothing.
+        """
+        warn("You tried to set the temperature! There is something wrong with your implementation.")
+
+    @property
+    def triple_temperature(self) -> float:
+        """Simulate getting a median of three temperature readings."""
+        time.sleep(0.001) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
+                          # Simulate 2 sleeps for reading from the actual sensor
+        return self._triple_temperature_value
+    
+    @triple_temperature.setter
+    def triple_temperature(self, value):
+        """
+        Does nothing.
+        """
+        warn("You tried to set the temperature! There is something wrong with your implementation.")
+        
+    @property
+    def pressure_and_temp(self) -> tuple[float, float]:
+        """Simulate getting a single pressure * temperature reading."""
+        return (self._pressure_value, self._temperature_value)
+    
+    @pressure_and_temp.setter
+    def pressure_and_temp(self, value):
+        """
+        Does nothing.
+        """
+        warn("You tried to set the pressure and temp! There is something wrong with your implementation.")
+
+    @property
+    def triple_pressure_and_temp(self) -> tuple[float, float]:
+        """Simulate getting a median of three pressure & temperature readings."""
+        time.sleep(0.001) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
+                          # Simulate 2 sleeps for reading from the actual sensor
+        return (self._triple_pressure_value, self._triple_temperature_value)
+    
+    @triple_pressure_and_temp.setter
+    def triple_pressure_and_temp(self, value):
+        """
+        Does nothing.
+        """
+        warn("You tried to set the pressure & temperature! There is something wrong with your implementation.")
+
+class MCP9600Thermocouple(TemperatureSensor):
+
+    _CELCIUS_TO_KELVIN = 273.15
+
+    def __init__(self, multiplexer_channel = None) -> None:
+        self._cant_connect = False
+        self._mcp = None
+        
+        if not multiplexer_channel:
+            self._cant_connect = True
+            return
+        
+        try:
+            if adafruit_mcp9600:
+                self._mcp = adafruit_mcp9600.MCP9600(multiplexer_channel)
+            else:
+                warn("Adafruit MCP9600 library not found!")
+                self._cant_connect = True
+        except:
+            self._cant_connect = True
+
+    @property
+    def cant_connect(self) -> bool:
+        """
+        Return whether the sensor is offline and unconnectable
+
+        Returns
+        -------
+        bool
+            True if there's a communication issue
+
+        """
+        return self._cant_connect
+    
+    @property
+    def temperature(self) -> float:
+        if self._cant_connect:
+            return -1
+        try:
+            return self._mcp.temperature + self._CELCIUS_TO_KELVIN
+        except Exception:
+            return -1
+
+    @property
+    def triple_temperature(self) -> float:
+        if self._cant_connect:
+            return -1
+        temperatures = []
+        for _ in range(3):
+            try:
+                temperatures.append(self._mcp.temperature) 
+            except Exception:
+                pass
+        return median(temperatures) + self._CELCIUS_TO_KELVIN if temperatures else -1

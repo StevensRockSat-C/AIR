@@ -4,11 +4,12 @@ from tempfile import _TemporaryFileWrapper
 import time
 from typing import Union
 from warnings import warn
-import sys
 import os
 from enum import Enum
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.parent.absolute()))
 
 from pi.multiprint import MultiPrinter, MultiPrinterAbstract
 from pi.RTC import RTC

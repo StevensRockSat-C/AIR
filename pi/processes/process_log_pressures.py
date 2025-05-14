@@ -1,9 +1,10 @@
-import sys
 import os
 from warnings import warn
 from typing import Union
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.parent.absolute()))
 
 from pi.processes.process import Process
 from pi.MPRLS import PressureSensor, TemperatureSensor, PressureTemperatureSensor
@@ -46,7 +47,7 @@ class LogPressures(Process):
         self.dpv_temperature_sensor = dpv_temperature_sensor
 
     def run(self) -> bool:
-        print(type(Process.get_multiprint()))
+        #print(type(Process.get_multiprint()))
         if not Process.is_ready():
             warn("Process is not ready for LogPressures!")
             if Process.can_log():
@@ -77,6 +78,7 @@ class LogPressures(Process):
         output_pressures = str(Process.get_rtc().getTPlusMS()) + ","
 
         if LogPressures.get_temp_thresh_reached():
+            print("TMP THRESH REACHED")
             for pressure_sensor in self.pressure_temperature_sensors:
                 output_pressures += str(pressure_sensor.pressure) + ","
             
@@ -99,19 +101,20 @@ class LogPressures(Process):
         dpv = self.dpv_temperature_sensor.temperature
         if dpv >= LogPressures.T_ANYTIME:
             Process.get_multiprint().pform("DPV Temperature may be over T_ANYTIME: " + str(dpv) + "K. Running triple check...", Process.get_rtc().getTPlusMS(), Process.get_output_log())
-            if self.dpv_temperature_sensor.triple_temperature >= LogPressures.T_ANYTIME:
+            current_temperature = self.dpv_temperature_sensor.triple_temperature
+            if current_temperature >= LogPressures.T_ANYTIME:
                 LogPressures.set_temp_thresh_reached(True)
-                Process.get_multiprint().pform("TEMP_TRESH_REACHED! DPV Temperature over T_ANYTIME: " + str(dpv) + "K, triple checked!", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+                Process.get_multiprint().pform("TEMP_THRESH_REACHED! DPV Temperature over T_ANYTIME: " + str(current_temperature) + "K, triple checked!", Process.get_rtc().getTPlusMS(), Process.get_output_log())
                 return
         
         target_temp = LogPressures.T_SAMPLE if LogPressures.get_currently_sampling() else LogPressures.T_ANYTIME
         if any(temperature >= target_temp for temperature in tank_temperatures):
-            Process.get_multiprint().pform("A temparature sensor may be over " + ("T_SAMPLE" if LogPressures.get_currently_sampling() else "T_ANYTIME") + ": " + str(tank_temperatures) + "K. Running triple check...", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+            Process.get_multiprint().pform("A temperature sensor may be over " + ("T_SAMPLE" if LogPressures.get_currently_sampling() else "T_ANYTIME") + ": " + str(tank_temperatures) + "K. Running triple check...", Process.get_rtc().getTPlusMS(), Process.get_output_log())
             for sensor in self.pressure_temperature_sensors:
                 current_temperature = sensor.triple_temperature
                 if current_temperature >= target_temp:
                     LogPressures.set_temp_thresh_reached(True)
-                    Process.get_multiprint().pform("TEMP_TRESH_REACHED! A temparature sensor is over " + ("T_SAMPLE" if LogPressures.get_currently_sampling() else "T_ANYTIME") + ": " + str(current_temperature) + "K, triple checked!", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+                    Process.get_multiprint().pform("TEMP_THRESH_REACHED! A temperature sensor is over " + ("T_SAMPLE" if LogPressures.get_currently_sampling() else "T_ANYTIME") + ": " + str(current_temperature) + "K, triple checked!", Process.get_rtc().getTPlusMS(), Process.get_output_log())
                     return
 
     def cleanup(self):
