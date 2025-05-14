@@ -1,0 +1,282 @@
+import time
+import pytest
+import tempfile
+from warnings import warn
+
+_original_time = time.time
+
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.parent.absolute()))
+
+
+from pi.processes.process import Process, PlumbingState
+from pi.processes.process_vent_hot_air import VentHotAir
+from pi.processes.process_log_pressures import LogPressures
+
+from pi.RTC import RTCFile
+from pi.MPRLS import MockPressureSensorStatic, MockPressureTemperatureSensorStatic, MPRLSFile
+from pi.multiprint import MockMultiPrinter
+from pi.collection import Collection
+from pi.tank import Tank, TankState
+
+from tests.test_Tank import MockValve
+
+class MockTankWithStaticPressure(Tank):
+    def __init__(self, name, pressure_single=800, pressure_triple=None):
+        if pressure_triple == None: pressure_triple = pressure_single
+        super().__init__(name, MockPressureSensorStatic(pressure_single, pressure_triple))
+        self.valve = MockValve(10, name)
+
+class MockTankWithDynamicPressure(Tank):
+    def __init__(self, name, pressure_single: list[float], pressure_triple=None):
+        if pressure_triple == None: pressure_triple = pressure_single
+        # Convert single values to lists if they aren't already
+        self._pressure_single = pressure_single if isinstance(pressure_single, list) else [pressure_single]
+        self._pressure_triple = pressure_triple if isinstance(pressure_triple, list) else [pressure_triple]
+        super().__init__(MockValve(10, name), MockPressureSensorStatic(self._pressure_single[0], self._pressure_triple[0]))
+        self._pressure_index = 1
+
+    def open(self):
+        """Override Tank.open() to change pressure sensor after opening valve"""
+        super().open()
+        # Get next pressure values, cycling back to start if we reach the end
+        single_pressure = self._pressure_single[self._pressure_index % len(self._pressure_single)]
+        triple_pressure = self._pressure_triple[self._pressure_index % len(self._pressure_triple)]
+        self.pressure_sensor = MockPressureSensorStatic(single_pressure, triple_pressure)
+        self._pressure_index += 1
+
+class MPRLSList(MPRLSFile):
+    def __init__(self, values: list[float]):
+        # Create a temporary file with the values
+        temp_file = tempfile.NamedTemporaryFile(mode='w+', suffix='.txt', delete=False)
+        try:
+            # Write each value on a new line
+            for value in values:
+                temp_file.write(f"{value}\n")
+            temp_file.close()
+            # Initialize parent with the temporary file path
+            super().__init__(temp_file.name)
+        finally:
+            # Clean up the temporary file
+            import os
+            os.unlink(temp_file.name)
+
+@pytest.fixture
+def mock_multiprint(monkeypatch):
+    """Mock MultiPrinter to capture printed messages."""
+
+    mock_printer = MockMultiPrinter()
+    return mock_printer
+
+@pytest.fixture
+def mock_rtc(monkeypatch):
+    """Mock RTC to provide fixed timestamps."""
+    
+    mock_rtc = RTCFile(200 * 1000)
+    fake_time = 230.0  # seconds; simulating current time
+    monkeypatch.setattr(time, "time", lambda: fake_time) # Force time to be fake_time, not incrementing
+    return mock_rtc
+
+@pytest.fixture
+def mock_log():
+    temp_file = tempfile.NamedTemporaryFile(mode='w+', suffix=".txt", delete=True)
+    yield temp_file
+    temp_file.close()
+
+@pytest.fixture
+def mock_pressures_log():
+    temp_file = tempfile.NamedTemporaryFile(mode='w+', suffix=".txt", delete=True)
+    yield temp_file
+    temp_file.close()
+
+@pytest.fixture
+def setup_process(monkeypatch, mock_multiprint, mock_rtc, mock_log, mock_pressures_log):
+    """Setup the initial pressure check."""
+
+    Process.set_multiprint(mock_multiprint)
+    Process.set_rtc(mock_rtc)
+    Process.set_output_log(mock_log)
+    Process.set_output_pressures(mock_pressures_log)
+    Process.set_plumbing_state(PlumbingState.READY)
+
+@pytest.fixture
+def mock_log_process() -> LogPressures:
+    log_Process = LogPressures()
+    log_Process.set_canister_pressure_sensor(MockPressureSensorStatic(100))
+    log_Process.set_dpv_temperature(MockPressureTemperatureSensorStatic(100, 350))
+    log_Process.set_pressure_sensors([MockPressureTemperatureSensorStatic(100, 110), MockPressureTemperatureSensorStatic(100, 110), MockPressureTemperatureSensorStatic(100, 110)])
+    return log_Process
+
+@pytest.fixture
+def vent_hot_air_instance() -> VentHotAir:
+    """Fixture to create an instance of VentHotAir."""
+    return VentHotAir()
+
+def test_initialize_process(setup_process, mock_multiprint, mock_rtc, mock_log, mock_pressures_log):
+    """Test the initialization process. Verifies the fixtures"""
+    
+    assert Process.get_multiprint() == mock_multiprint
+    assert Process.get_rtc() == mock_rtc
+    assert Process.get_output_log() == mock_log
+    assert Process.get_output_pressures() == mock_pressures_log
+    assert Process.is_ready()
+    assert Process.can_log()
+
+def test_run_not_ready(monkeypatch, setup_process, vent_hot_air_instance: VentHotAir):
+    """
+    If Process.is_ready() is False, run() should return False and log a warning.
+    """
+    monkeypatch.setattr(Process, "is_ready", lambda: False)
+    
+    result = vent_hot_air_instance.run()
+
+    assert result is False
+    # Check that a warning message was logged via pform on the output log
+    assert ("T+ " + str(Process.rtc.getTPlusMS()) + " ms\tProcess is not ready for VentHotAir!") in Process.multiprint.logs[Process.output_log.name]
+
+def test_initialize_general_failure(setup_process, vent_hot_air_instance: VentHotAir):
+    """
+    If nothing is set, initialize() should return False and log a warning.
+    """
+    result = vent_hot_air_instance.initialize()
+
+    assert result is False
+    assert ("T+ " + str(Process.rtc.getTPlusMS()) + " ms\tLogPressures not set for VentHotAir! Aborting Process.") in Process.multiprint.logs[Process.output_log.name]
+
+def test_initialize_no_all_valves(setup_process, vent_hot_air_instance: VentHotAir, mock_log_process: LogPressures):
+    """
+    If All Valves are set, initialize() should return False and log a warning.
+    """
+    vent_hot_air_instance.set_log_pressures(mock_log_process)
+
+    result = vent_hot_air_instance.initialize()
+
+    assert result is False
+    assert ("T+ " + str(Process.rtc.getTPlusMS()) + " ms\tAll Valves not set for VentHotAir! Aborting Process.") in Process.multiprint.logs[Process.output_log.name]
+
+def test_initialize_no_main_valve(setup_process, vent_hot_air_instance: VentHotAir, mock_log_process: LogPressures):
+    """
+    If no main_valve is set, initialize() should return False and log a warning.
+    """
+    vent_hot_air_instance.set_log_pressures(mock_log_process)
+    main_valve = MockValve(1, "Main")
+    dynamic_valve = MockValve(2, "Dynamic")
+    static_valve = MockValve(3, "Static")
+    valve_1 = MockValve(4, "1")
+    valve_2 = MockValve(5, "2")
+    all_valves = [main_valve, dynamic_valve, static_valve, valve_1, valve_2]
+    vent_hot_air_instance.set_all_valves(all_valves)
+
+    result = vent_hot_air_instance.initialize()
+
+    assert result is False
+    assert ("T+ " + str(Process.rtc.getTPlusMS()) + " ms\tMain Valve not set for VentHotAir! Aborting Process.") in Process.multiprint.logs[Process.output_log.name]
+
+def test_initialize_no_static_valve(setup_process, vent_hot_air_instance: VentHotAir, mock_log_process: LogPressures):
+    """
+    If no static_valve is set, initialize() should return False and log a warning.
+    """
+    vent_hot_air_instance.set_log_pressures(mock_log_process)
+    main_valve = MockValve(1, "Main")
+    dynamic_valve = MockValve(2, "Dynamic")
+    static_valve = MockValve(3, "Static")
+    valve_1 = MockValve(4, "1")
+    valve_2 = MockValve(5, "2")
+    all_valves = [main_valve, dynamic_valve, static_valve, valve_1, valve_2]
+    vent_hot_air_instance.set_all_valves(all_valves)
+    vent_hot_air_instance.set_main_valve(main_valve)
+
+    result = vent_hot_air_instance.initialize()
+
+    assert result is False
+    assert ("T+ " + str(Process.rtc.getTPlusMS()) + " ms\tStatic Valve not set for VentHotAir! Aborting Process.") in Process.multiprint.logs[Process.output_log.name]
+
+def test_initialize_no_dpv_temp_sensor(setup_process, vent_hot_air_instance: VentHotAir, mock_log_process: LogPressures):
+    """
+    If no dpv temp sensor is set, initialize() should return False and log a warning.
+    """
+    vent_hot_air_instance.set_log_pressures(mock_log_process)
+    main_valve = MockValve(1, "Main")
+    dynamic_valve = MockValve(2, "Dynamic")
+    static_valve = MockValve(3, "Static")
+    valve_1 = MockValve(4, "1")
+    valve_2 = MockValve(5, "2")
+    all_valves = [main_valve, dynamic_valve, static_valve, valve_1, valve_2]
+    vent_hot_air_instance.set_all_valves(all_valves)
+    vent_hot_air_instance.set_main_valve(main_valve)
+    vent_hot_air_instance.set_static_valve(static_valve)
+
+    result = vent_hot_air_instance.initialize()
+
+    assert result is False
+    assert ("T+ " + str(Process.rtc.getTPlusMS()) + " ms\tDPV Temperature Sensor not set for VentHotAir! Aborting Process.") in Process.multiprint.logs[Process.output_log.name]
+
+def test_initialize_total_success(setup_process, vent_hot_air_instance: VentHotAir, mock_log_process: LogPressures):
+    """
+    If everything is set and the temp_thresh was not reached, should continue and log that we're NOT here because of it
+    """
+    mock_log_process.set_temp_thresh_reached(False)
+    vent_hot_air_instance.set_log_pressures(mock_log_process)
+    main_valve = MockValve(1, "Main")
+    dynamic_valve = MockValve(2, "Dynamic")
+    static_valve = MockValve(3, "Static")
+    valve_1 = MockValve(4, "1")
+    valve_2 = MockValve(5, "2")
+    all_valves = [main_valve, dynamic_valve, static_valve, valve_1, valve_2]
+    vent_hot_air_instance.set_all_valves(all_valves)
+    vent_hot_air_instance.set_main_valve(main_valve)
+    vent_hot_air_instance.set_static_valve(static_valve)
+    dpv_temp = MockPressureTemperatureSensorStatic(pressure=-1, temperature=350)
+    vent_hot_air_instance.set_dpv_temperature_sensor(dpv_temp)
+
+    result = vent_hot_air_instance.initialize()
+
+    assert result is True
+    assert ("T+ " + str(Process.rtc.getTPlusMS()) + " ms\tWe are NOT here because TEMP_THRESH_REACHED!") in Process.multiprint.logs[Process.output_log.name]
+
+    mock_log_process.set_temp_thresh_reached(False) # Reset Class variable for future tests
+
+def test_initialize_temp_thresh_reached(setup_process, vent_hot_air_instance: VentHotAir, mock_log_process: LogPressures):
+    """
+    If everything is set, but the temp_thresh was reached, should continue and log that we're here because of it
+    """
+    mock_log_process.set_temp_thresh_reached(True)
+    vent_hot_air_instance.set_log_pressures(mock_log_process)
+    main_valve = MockValve(1, "Main")
+    dynamic_valve = MockValve(2, "Dynamic")
+    static_valve = MockValve(3, "Static")
+    valve_1 = MockValve(4, "1")
+    valve_2 = MockValve(5, "2")
+    all_valves = [main_valve, dynamic_valve, static_valve, valve_1, valve_2]
+    vent_hot_air_instance.set_all_valves(all_valves)
+    vent_hot_air_instance.set_main_valve(main_valve)
+    vent_hot_air_instance.set_static_valve(static_valve)
+    dpv_temp = MockPressureTemperatureSensorStatic(pressure=-1, temperature=350)
+    vent_hot_air_instance.set_dpv_temperature_sensor(dpv_temp)
+
+    result = vent_hot_air_instance.initialize()
+
+    assert result is True
+    assert ("T+ " + str(Process.rtc.getTPlusMS()) + " ms\tWe are here because TEMP_THRESH_REACHED!") in Process.multiprint.logs[Process.output_log.name]
+
+    mock_log_process.set_temp_thresh_reached(False) # Reset Class variable for future tests
+
+def test_cleanup_no_error(setup_process, vent_hot_air_instance: VentHotAir):
+    """
+    Since cleanup() is a no-op, calling it should not produce errors.
+    """
+    # Just ensure that calling cleanup() does not raise an exception.
+    vent_hot_air_instance.cleanup()
+    assert ("T+ " + str(Process.rtc.getTPlusMS()) + " ms\tFinished VentHotAir.") in Process.multiprint.logs[Process.output_log.name]
+
+# -----------------------------------------
+# Cyclomatic Complexity Path Tests
+# -----------------------------------------
+
+
+
+# -----------------------------------------
+# Tests for triple pressure
+# -----------------------------------------
+

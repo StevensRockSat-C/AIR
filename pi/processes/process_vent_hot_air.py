@@ -75,8 +75,8 @@ class VentHotAir(Process):
             warn("LogPressures not set for VentHotAir!")
             return False
         if not self.all_valves:
-            Process.get_multiprint().pform("all_valves not set for VentHotAir! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
-            warn("all_valves not set for VentHotAir!")
+            Process.get_multiprint().pform("All Valves not set for VentHotAir! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+            warn("All Valves not set for VentHotAir!")
             return False
         if not self.main_valve:
             Process.get_multiprint().pform("Main Valve not set for VentHotAir! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
@@ -91,10 +91,9 @@ class VentHotAir(Process):
             warn("DPV Temperature Sensor not set for VentHotAir!")
             return False
         
-        if self.log_pressures.get_temp_thresh_reached():
-            Process.get_multiprint().pform("We are " + 
-                                           ("" if self.log_pressures.get_temp_thresh_reached() else "not") + 
-                                           " here because TEMP_THRESH_REACHED!", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+        Process.get_multiprint().pform("We are " + 
+                                        ("" if self.log_pressures.get_temp_thresh_reached() else "NOT ") + 
+                                        "here because TEMP_THRESH_REACHED!", Process.get_rtc().getTPlusMS(), Process.get_output_log())
         
         return True
 
@@ -145,4 +144,4 @@ class VentHotAir(Process):
         Process.get_multiprint().pform(f"Closed Main Valve and Static Valve.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
 
     def cleanup(self):
-        Process.get_multiprint().pform("Finished Vent Hot Air.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+        Process.get_multiprint().pform("Finished VentHotAir.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
