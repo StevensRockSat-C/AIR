@@ -27,6 +27,9 @@ class LogPressures(Process):
     
     @classmethod
     def set_temp_thresh_reached(cls, reached: bool):
+        if not cls._temp_thresh_reached and reached:
+            if Process.can_log():
+                Process.get_multiprint().pform("Temp threshold reached & set!", Process.get_rtc().getTPlusMS(), Process.get_output_log())
         cls._temp_thresh_reached = reached
 
     @classmethod
@@ -78,7 +81,6 @@ class LogPressures(Process):
         output_pressures = str(Process.get_rtc().getTPlusMS()) + ","
 
         if LogPressures.get_temp_thresh_reached():
-            print("TMP THRESH REACHED")
             for pressure_sensor in self.pressure_temperature_sensors:
                 output_pressures += str(pressure_sensor.pressure) + ","
             
