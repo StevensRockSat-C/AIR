@@ -402,7 +402,7 @@ def test_triple_dpv_temp_lessthan_target(monkeypatch, setup_process, vent_hot_ai
 
     assert not any("Temperature is increasing (" in log for log in logs)
     assert not any("Aborting Venting!" in log for log in logs)
-    assert not any(f"DPV Temperature (220K) is less than VENT_TARGET (380K). Finished Venting." in log for log in logs)
+    assert not any("DPV Temperature (220K) is less than VENT_TARGET (380K). Finished Venting." in log for log in logs)
     assert any("Closed Main Valve and Static Valve." in log for log in logs) 
 
 def test_triple_dpv_temp_increasing_(monkeypatch, setup_process, vent_hot_air_instance: VentHotAir, mock_log_process: LogPressures):
@@ -440,3 +440,138 @@ def test_triple_dpv_temp_increasing_(monkeypatch, setup_process, vent_hot_air_in
     assert any("Temperature is increasing (59.88K/s)! Aborting Venting!" in log for log in logs)
     assert any("Closed Main Valve and Static Valve." in log for log in logs) 
 
+# -----------------------------------------
+# Tests for unconnected sensors / missing values
+# -----------------------------------------
+
+def test_unconnected_thermocouple(monkeypatch, setup_process, vent_hot_air_instance: VentHotAir, mock_log_process: LogPressures):
+    """T_thermocouple <= T_ventTarget shouldn't triger if T_thermocouple is -1"""
+    monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
+    mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
+    Process.set_rtc(mock_rtc)
+
+    mock_log_process.set_temp_thresh_reached(False) # Did not reach thresholds
+    vent_hot_air_instance.set_log_pressures(mock_log_process)
+    main_valve = MockValve(1, "Main")
+    dynamic_valve = MockValve(2, "Dynamic")
+    static_valve = MockValve(3, "Static")
+    valve_1 = MockValve(4, "1")
+    valve_2 = MockValve(5, "2")
+    all_valves = [main_valve, dynamic_valve, static_valve, valve_1, valve_2]
+    vent_hot_air_instance.set_all_valves(all_valves)
+    vent_hot_air_instance.set_main_valve(main_valve)
+    vent_hot_air_instance.set_static_valve(static_valve)
+    dpv_temp = MockTimeDependentTemperatureSensor(rtc=mock_rtc, time_temp_pairs=[
+        (15000, -1),
+    ], triple_time_temp_pairs= [
+        (15000, -1),
+    ])
+    vent_hot_air_instance.set_dpv_temperature_sensor(dpv_temp)
+
+    vent_hot_air_instance.run()
+    
+    logs = Process.multiprint.logs[Process.output_log.name]
+
+    assert not any("DPV Temperature (-1K) is less than VENT_TARGET (380K). Finished Venting." in log for log in logs)
+    
+def test_unconnected_triple_thermocouple(monkeypatch, setup_process, vent_hot_air_instance: VentHotAir, mock_log_process: LogPressures):
+    """ T_thermocouple <= T_ventTarget shouldn't triger if the first temperature < T_ventTarget but then the sensor disconnects"""
+    monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
+    mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
+    Process.set_rtc(mock_rtc)
+
+    mock_log_process.set_temp_thresh_reached(False) # Did not reach thresholds
+    vent_hot_air_instance.set_log_pressures(mock_log_process)
+    main_valve = MockValve(1, "Main")
+    dynamic_valve = MockValve(2, "Dynamic")
+    static_valve = MockValve(3, "Static")
+    valve_1 = MockValve(4, "1")
+    valve_2 = MockValve(5, "2")
+    all_valves = [main_valve, dynamic_valve, static_valve, valve_1, valve_2]
+    vent_hot_air_instance.set_all_valves(all_valves)
+    vent_hot_air_instance.set_main_valve(main_valve)
+    vent_hot_air_instance.set_static_valve(static_valve)
+    dpv_temp = MockTimeDependentTemperatureSensor(rtc=mock_rtc, time_temp_pairs=[
+        (15000, 200),
+    ], triple_time_temp_pairs= [
+        (15000, -1),
+    ])
+    vent_hot_air_instance.set_dpv_temperature_sensor(dpv_temp)
+
+    vent_hot_air_instance.run()
+    
+    logs = Process.multiprint.logs[Process.output_log.name]
+
+    assert not any("DPV Temperature (-1K) is less than VENT_TARGET (380K). Finished Venting." in log for log in logs)
+    assert not any("DPV Temperature (200K) is less than VENT_TARGET (380K). Finished Venting." in log for log in logs)
+
+def test_unconnected_thermocouple_delta(monkeypatch, setup_process, vent_hot_air_instance: VentHotAir, mock_log_process: LogPressures):
+    """t_small test DPV temp staying the same until t_vent time elapses."""
+    monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
+    mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
+    Process.set_rtc(mock_rtc)
+
+    mock_log_process.set_temp_thresh_reached(False) # Did not reach thresholds
+    vent_hot_air_instance.set_log_pressures(mock_log_process)
+    main_valve = MockValve(1, "Main")
+    dynamic_valve = MockValve(2, "Dynamic")
+    static_valve = MockValve(3, "Static")
+    valve_1 = MockValve(4, "1")
+    valve_2 = MockValve(5, "2")
+    all_valves = [main_valve, dynamic_valve, static_valve, valve_1, valve_2]
+    vent_hot_air_instance.set_all_valves(all_valves)
+    vent_hot_air_instance.set_main_valve(main_valve)
+    vent_hot_air_instance.set_static_valve(static_valve)
+    dpv_temp = MockTimeDependentTemperatureSensor(rtc=mock_rtc, time_temp_pairs=[
+        (15000, 500),
+        (16000, -1),
+        (17000, 510),
+        (18000, 520)
+    ])
+    vent_hot_air_instance.set_dpv_temperature_sensor(dpv_temp)
+
+    vent_hot_air_instance.run()
+    
+    logs = Process.multiprint.logs[Process.output_log.name]
+
+    assert not any("DPV Temperature (-1K) is less than VENT_TARGET (380K). Finished Venting." in log for log in logs)
+    assert not any("Temperature is increasing (" in log for log in logs)
+    assert not any("Aborting Venting!" in log for log in logs)
+
+def test_unconnected_triple_thermocouple_delta(monkeypatch, setup_process, vent_hot_air_instance: VentHotAir, mock_log_process: LogPressures):
+    """t_small test DPV temp staying the same until t_vent time elapses."""
+    monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
+    mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
+    Process.set_rtc(mock_rtc)
+
+    mock_log_process.set_temp_thresh_reached(False) # Did not reach thresholds
+    vent_hot_air_instance.set_log_pressures(mock_log_process)
+    main_valve = MockValve(1, "Main")
+    dynamic_valve = MockValve(2, "Dynamic")
+    static_valve = MockValve(3, "Static")
+    valve_1 = MockValve(4, "1")
+    valve_2 = MockValve(5, "2")
+    all_valves = [main_valve, dynamic_valve, static_valve, valve_1, valve_2]
+    vent_hot_air_instance.set_all_valves(all_valves)
+    vent_hot_air_instance.set_main_valve(main_valve)
+    vent_hot_air_instance.set_static_valve(static_valve)
+    dpv_temp = MockTimeDependentTemperatureSensor(rtc=mock_rtc, time_temp_pairs=[
+        (15000, 500),
+        (16000, -1),
+        (17000, 510),
+        (18000, 520)
+    ], triple_time_temp_pairs= [
+        (15000, 510),
+        (16000, -1),
+        (17000, 520),
+        (18000, 530)
+    ])
+    vent_hot_air_instance.set_dpv_temperature_sensor(dpv_temp)
+
+    vent_hot_air_instance.run()
+    
+    logs = Process.multiprint.logs[Process.output_log.name]
+
+    assert not any("DPV Temperature (-1K) is less than VENT_TARGET (380K). Finished Venting." in log for log in logs)
+    assert not any("Temperature is increasing (" in log for log in logs)
+    assert not any("Aborting Venting!" in log for log in logs)
