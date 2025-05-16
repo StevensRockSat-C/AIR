@@ -1,4 +1,5 @@
 import os
+import time
 from warnings import warn
 from typing import Union
 
@@ -16,7 +17,7 @@ class LogPressures(Process):
     T_ANYTIME: int = 470 # Kelvin
     T_SAMPLE: int = 400 # Kelvin
     _time_last_sampled = 0 #in ms
-    _time_btw_temp_checks = 15 #in ms
+    _TIME_BTW_TEMP_CHECKS = 15 #in ms
 
     def __init__(self):
         self.dpv_temperature_sensor: Union[TemperatureSensor, PressureTemperatureSensor] = None
@@ -52,7 +53,6 @@ class LogPressures(Process):
         self.dpv_temperature_sensor = dpv_temperature_sensor
 
     def run(self) -> bool:
-        #print(type(Process.get_multiprint()))
         if not Process.is_ready():
             warn("Process is not ready for LogPressures!")
             if Process.can_log():
@@ -103,8 +103,8 @@ class LogPressures(Process):
         
         Process.get_multiprint().p(output_pressures, Process.get_output_pressures())
 
-        if current_time >= self._time_last_sampled + self._time_btw_temp_checks: 
-            self._time_last_sampled = current_time
+        if time.time() * 1000 >= self._time_last_sampled + self._TIME_BTW_TEMP_CHECKS:
+            self._time_last_sampled = time.time() * 1000
             dpv = self.dpv_temperature_sensor.temperature
             if dpv >= LogPressures.T_ANYTIME:
                 Process.get_multiprint().pform("DPV Temperature may be over T_ANYTIME: " + str(dpv) + "K. Running triple check...", Process.get_rtc().getTPlusMS(), Process.get_output_log())
