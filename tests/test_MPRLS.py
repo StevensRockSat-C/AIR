@@ -578,3 +578,22 @@ def test_MockTimeDependentTemperatureSensor_standard():
 
     assert temp_sensor.temperature == 420
     assert temp_sensor.triple_temperature == 420
+
+def test_MockTimeDependentTemperatureSensor_triple():
+    """Basic test for the implementation"""
+    mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
+    temp_sensor = MockTimeDependentTemperatureSensor(rtc=mock_rtc, time_temp_pairs=[
+        (15000, 450),
+        (16000, 420)
+    ], triple_time_temp_pairs= [
+        (15000, 300),
+        (16000, 400)
+    ])
+
+    assert temp_sensor.temperature == 450
+    assert temp_sensor.triple_temperature == 300
+
+    mock_rtc.setEstT0(int(time.time() * 1000 - 16000)) # Put us at T+16000ms
+
+    assert temp_sensor.temperature == 420
+    assert temp_sensor.triple_temperature == 400

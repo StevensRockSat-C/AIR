@@ -737,7 +737,7 @@ class MockTimeDependentTemperatureSensor(TemperatureSensor):
     You provide a list of (time_ms, temperature) pairs. The temperature returned
     is the last value whose time_ms <= current time.
     """
-    def __init__(self, time_temp_pairs: list[tuple[int, float]], rtc: RTC):
+    def __init__(self, time_temp_pairs: list[tuple[int, float]], rtc: RTC, triple_time_temp_pairs: list[tuple[int, float]] = []):
         """
         time_temp_pairs: List of (time_ms, temperature) tuples, sorted by time_ms ascending.
         rtc: The RTC instance to get the current time in ms.
@@ -745,6 +745,10 @@ class MockTimeDependentTemperatureSensor(TemperatureSensor):
         self.time_temp_pairs = sorted(time_temp_pairs)
         self.rtc = rtc
         self._cant_connect = False
+        if triple_time_temp_pairs == []:
+            self.triple_time_temp_pairs = time_temp_pairs
+        else:
+            self.triple_time_temp_pairs = triple_time_temp_pairs
 
     @property
     def ready(self):
@@ -763,4 +767,11 @@ class MockTimeDependentTemperatureSensor(TemperatureSensor):
 
     @property
     def triple_temperature(self):
-        return self.temperature
+        now = self.rtc.getTPlusMS()
+        temp = self.triple_time_temp_pairs[0][1]
+        for t, v in self.triple_time_temp_pairs:
+            if now >= t:
+                temp = v
+            else:
+                break
+        return temp
