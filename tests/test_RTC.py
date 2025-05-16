@@ -84,7 +84,7 @@ def test_rtcwrappedsensor_success(monkeypatch):
     Successful initialization of RTCWrappedSensor using a dummy DS3231.
     """
     # Fix the time so that all time.time() calls return a constant value.
-    fixed_time = 2000.0  # seconds; equivalent to 2,000,000 ms
+    fixed_time = 200.0  # seconds; equivalent to 200,000 ms
     monkeypatch.setattr(time, "time", lambda: fixed_time)
     
     # Create a dummy module-like object with the DS3231 attribute.
@@ -100,10 +100,10 @@ def test_rtcwrappedsensor_success(monkeypatch):
     
     # The dummy DS3231 returns tm_min=1 and tm_sec=30, so the offset is:
     # offset = (1*60 + 30)*1000 = 90,000 ms.
-    # With fixed_time=2000.0 s, both ref and now are 2,000,000 ms.
-    # Then, t0 = 2000000 - 90,000 ms = 1910000 ms.
-    expected_t0_ms = 1910000
-    expected_t0 = round(expected_t0_ms / 1000)  # 1970 seconds
+    # With fixed_time=200.0 s, both ref and now are 200,000 ms.
+    # Then, t0 = 200,000 ms - 90,000 ms + 180,000ms = 290,000 ms.
+    expected_t0_ms = 290000
+    expected_t0 = round(expected_t0_ms / 1000)  # 290 seconds
     
     # Verify that the sensor reports readiness and the calculated t0 values.
     assert sensor.isReady() is True
@@ -178,3 +178,46 @@ def test_rtcwrappedsensor_set_est_t0(monkeypatch):
     assert sensor.getT0() == new_t0 // 1000
     # And getT0MS should return the new reference directly.
     assert sensor.getT0MS() == new_t0
+
+def test_rtcwrappedsensor_activation_times(monkeypatch):
+    """
+    Test that different activation times (activated_at_T_plus_ms) are handled correctly.
+    Verifies that T0 is properly offset based on the activation time parameter.
+    """
+    # Fix the time so that all time.time() calls return a constant value
+    fixed_time = 2000.0  # seconds; equivalent to 2,000,000 ms
+    monkeypatch.setattr(time, "time", lambda: fixed_time)
+    
+    # Create a dummy module-like object with the DS3231 attribute
+    DummyModule = type("DummyModule", (), {"DS3231": DummyDS3231})
+    
+    import pi.RTC as rtc_module
+    monkeypatch.setattr(rtc_module, "adafruit_ds3231", DummyModule)
+    
+    dummy_i2c = object()
+    
+    # Test cases with different activation times
+    test_cases = [
+        (0, "Standard activation (1.SYS.2)"),  # No offset
+        (-60000, "Early activation at T-60s (1.SYS.1)"),  # 60 seconds before
+        (-180000, "Early activation at T-180s (1.SYS.1)"),  # 180 seconds before
+    ]
+    
+    for activation_ms, description in test_cases:
+        sensor = RTCWrappedSensor(dummy_i2c, activated_at_T_plus_ms=activation_ms)
+        
+        # The dummy DS3231 returns tm_min=1 and tm_sec=30, so the base offset is:
+        # base_offset = (1*60 + 30)*1000 = 90,000 ms
+        # With fixed_time=2000.0 s, both ref and now are 2,000,000 ms
+        # Then, t0 = 2000000 - 90000 - activation_ms
+        base_offset = 90000  # From DummyDS3231 (1 min 30 sec)
+        expected_t0_ms = 2000000 - base_offset - activation_ms
+        
+        assert sensor.isReady() is True, f"Failed for {description}"
+        assert sensor.getT0MS() == expected_t0_ms, f"Failed for {description}"
+        
+        # Verify TPlus calculations
+        expected_tplus = round(fixed_time - round(expected_t0_ms / 1000))
+        expected_tplus_ms = int(fixed_time * 1000) - expected_t0_ms
+        assert sensor.getTPlus() == expected_tplus, f"Failed for {description}"
+        assert sensor.getTPlusMS() == expected_tplus_ms, f"Failed for {description}"
