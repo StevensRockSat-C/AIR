@@ -329,6 +329,92 @@ def test_nova_pressure_sensor_init_ready(monkeypatch):
     assert sensor.ready is True
     assert sensor.cant_connect is False
 
+def test_nova_pressure_sensor_custom_psi_max(monkeypatch):
+    """
+    Test NovaPressureSensor with a custom psi_max value.
+    The same digital count should be interpreted differently based on PSI_MAX.
+    """
+    # Use a raw value halfway between P_MIN and P_MAX
+    # This should read as 15 psi on a 30 psi sensor, but 50 psi on a 100 psi sensor
+    raw_value = (NovaPressureSensor.P_MAX + NovaPressureSensor.P_MIN) // 2
+    channel = DummyI2CChannel(raw_value)
+    monkeypatch.setattr(time, "sleep", lambda x: None)
+
+    resolution30 = 30 / (NovaPressureSensor.P_MAX - NovaPressureSensor.P_MIN) * NovaPressureSensor.PSI_TO_HPA  # expected resolution (30 psi over 13107 states)
+    resolution100 = 100 / (NovaPressureSensor.P_MAX - NovaPressureSensor.P_MIN) * NovaPressureSensor.PSI_TO_HPA  # expected resolution (100 psi over 13107 states)
+    
+    # Test with 30 psi sensor (default)
+    sensor_30psi = NovaPressureSensor(channel)
+    pressure_30psi = sensor_30psi.pressure
+    expected_30psi = (30 * (raw_value * 1.0 / (NovaPressureSensor.P_MAX + NovaPressureSensor.P_MIN))) * NovaPressureSensor.PSI_TO_HPA  # 15 psi * conversion factor
+
+    assert abs(pressure_30psi - expected_30psi) < resolution30
+    assert sensor_30psi.ready is True
+    
+    # Test with 100 psi sensor
+    sensor_100psi = NovaPressureSensor(channel, psi_max=100)
+    pressure_100psi = sensor_100psi.pressure
+    expected_100psi = 50 * NovaPressureSensor.PSI_TO_HPA  # 50 psi * conversion factor
+
+    assert abs(pressure_100psi - expected_100psi) < resolution100
+    assert sensor_100psi.ready is True
+
+def test_nova_pressure_sensor_custom_psi_max_edge(monkeypatch):
+    """
+    Test NovaPressureSensor with a custom psi_max value at the edge case.
+    P_MAX should always read as PSI_MAX, regardless of what PSI_MAX is set to.
+    """
+    raw_value = NovaPressureSensor.P_MAX
+    channel = DummyI2CChannel(raw_value)
+    monkeypatch.setattr(time, "sleep", lambda x: None)
+
+    resolution30 = 30 / (NovaPressureSensor.P_MAX - NovaPressureSensor.P_MIN) * NovaPressureSensor.PSI_TO_HPA  # expected resolution (30 psi over 13107 states)
+    resolution100 = 100 / (NovaPressureSensor.P_MAX - NovaPressureSensor.P_MIN) * NovaPressureSensor.PSI_TO_HPA  # expected resolution (100 psi over 13107 states)
+    
+    # Test with 30 psi sensor (default)
+    sensor_30psi = NovaPressureSensor(channel)
+    pressure_30psi = sensor_30psi.pressure
+    expected_30psi = 30 * NovaPressureSensor.PSI_TO_HPA  # 30 psi * conversion factor
+
+    assert abs(pressure_30psi - expected_30psi) < resolution30
+    assert sensor_30psi.ready is True
+    
+    # Test with 100 psi sensor
+    sensor_100psi = NovaPressureSensor(channel, psi_max=100)
+    pressure_100psi = sensor_100psi.pressure
+    expected_100psi = 100 * NovaPressureSensor.PSI_TO_HPA  # 100 psi * conversion factor
+
+    assert abs(pressure_100psi - expected_100psi) < resolution100
+    assert sensor_100psi.ready is True
+
+def test_nova_pressure_sensor_custom_psi_max_min(monkeypatch):
+    """
+    Test NovaPressureSensor with a custom psi_max value at the minimum case.
+    P_MIN will read close to 0 psi, regardless of what PSI_MAX is set to.
+    """
+    raw_value = NovaPressureSensor.P_MIN + 1
+    channel = DummyI2CChannel(raw_value)
+    monkeypatch.setattr(time, "sleep", lambda x: None)
+
+    resolution30 = 30 / (NovaPressureSensor.P_MAX - NovaPressureSensor.P_MIN) * NovaPressureSensor.PSI_TO_HPA  # expected resolution (30 psi over 13107 states)
+    resolution100 = 100 / (NovaPressureSensor.P_MAX - NovaPressureSensor.P_MIN) * NovaPressureSensor.PSI_TO_HPA  # expected resolution (100 psi over 13107 states)
+    
+    # Test with 30 psi sensor (default)
+    sensor_30psi = NovaPressureSensor(channel)
+    pressure_30psi = sensor_30psi.pressure
+    expected_30psi = resolution30  # First possible value
+
+    assert abs(pressure_30psi - expected_30psi) < resolution30
+    assert sensor_30psi.ready is True
+    
+    # Test with 100 psi sensor
+    sensor_100psi = NovaPressureSensor(channel, psi_max=100)
+    pressure_100psi = sensor_100psi.pressure
+    expected_100psi = resolution100  # First possible value
+
+    assert abs(pressure_100psi - expected_100psi) < resolution100
+    assert sensor_100psi.ready is True
+
 # -----------------------------------------
 # Tests for MPRLSFile implementation
 # -----------------------------------------

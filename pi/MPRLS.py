@@ -194,14 +194,15 @@ class NovaPressureSensor(PressureTemperatureSensor):
     P_MIN = 1638            # Digital count at minimum pressure (10% VDD)
     P_MAX = 14745           # Digital count at maximum pressure (90% VDD)
     PSI_MIN = 0             # Absolute pressure sensor, minimum at vacuum
-    PSI_MAX = 30            # Maximum rated pressure for the 30 psi version
+    PSI_MAX = 30            # Maximum rated pressure for the NOVA
     PSI_TO_HPA = 68.9476    # Conversion factor
     TEMP_BITS_SPAN = 2048   # 11 bits
-    TEMP_MAX = 150          # Celcius     
+    TEMP_MAX = 150          # Celcius
     TEMP_MIN = -50          # Celcius
     TEMP_SPAN = TEMP_MAX - TEMP_MIN
     
-    def __init__(self, channel):
+    def __init__(self, channel, psi_max=30):
+        self.PSI_MAX = psi_max
         self.channel = channel
         self._ready = False
         for i in range(3):
