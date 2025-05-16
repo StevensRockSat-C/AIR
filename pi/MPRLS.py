@@ -471,6 +471,7 @@ class MPRLSFile(PressureSensor):
         if not self.data:
             return -1
         pressures = [self.pressure for _ in range(3)]
+        pressures = [p for p in pressures if p != -1]
         time.sleep(0.010) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
                           # Simulate 2 sleeps for reading from the actual sensor
         return median(pressures)
