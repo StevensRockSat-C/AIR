@@ -93,18 +93,23 @@ class LogPressures(Process):
             return
 
         tank_temperatures: list[float] = []
+        time_now = time.time() * 1000
         
         for pressure_sensor in self.pressure_temperature_sensors:
-            current_pressure, current_temperature = pressure_sensor.pressure_and_temp
-            output_pressures += str(current_pressure) + ","
-            tank_temperatures.append(current_temperature)
+            if time_now >= self._time_last_sampled + self._TIME_BTW_TEMP_CHECKS:
+                current_pressure, current_temperature = pressure_sensor.pressure_and_temp
+                output_pressures += str(current_pressure) + ","
+                tank_temperatures.append(current_temperature)
+            else:
+                current_pressure = pressure_sensor.pressure
+                output_pressures += str(current_pressure) + ","
         
         output_pressures += str(self.canister_pressure_sensor.pressure) + ","
         
         Process.get_multiprint().p(output_pressures, Process.get_output_pressures())
 
-        if time.time() * 1000 >= self._time_last_sampled + self._TIME_BTW_TEMP_CHECKS:
-            self._time_last_sampled = time.time() * 1000
+        if time_now >= self._time_last_sampled + self._TIME_BTW_TEMP_CHECKS:
+            self._time_last_sampled = time_now
             dpv = self.dpv_temperature_sensor.temperature
             if dpv >= LogPressures.T_ANYTIME:
                 Process.get_multiprint().pform("DPV Temperature may be over T_ANYTIME: " + str(dpv) + "K. Running triple check...", Process.get_rtc().getTPlusMS(), Process.get_output_log())
