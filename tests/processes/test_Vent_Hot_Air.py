@@ -15,52 +15,12 @@ from pi.processes.process_vent_hot_air import VentHotAir
 from pi.processes.process_log_pressures import LogPressures
 
 from pi.RTC import RTCFile
-from pi.MPRLS import MockPressureSensorStatic, MockPressureTemperatureSensorStatic, MPRLSFile
+from pi.MPRLS import MockPressureSensorStatic, MockPressureTemperatureSensorStatic, MockTimeDependentTemperatureSensor
 from pi.multiprint import MockMultiPrinter
-from pi.collection import Collection
-from pi.tank import Tank, TankState
 
 from tests.test_Tank import MockValve
 
-class MockTankWithStaticPressure(Tank):
-    def __init__(self, name, pressure_single=800, pressure_triple=None):
-        if pressure_triple == None: pressure_triple = pressure_single
-        super().__init__(name, MockPressureSensorStatic(pressure_single, pressure_triple))
-        self.valve = MockValve(10, name)
 
-class MockTankWithDynamicPressure(Tank):
-    def __init__(self, name, pressure_single: list[float], pressure_triple=None):
-        if pressure_triple == None: pressure_triple = pressure_single
-        # Convert single values to lists if they aren't already
-        self._pressure_single = pressure_single if isinstance(pressure_single, list) else [pressure_single]
-        self._pressure_triple = pressure_triple if isinstance(pressure_triple, list) else [pressure_triple]
-        super().__init__(MockValve(10, name), MockPressureSensorStatic(self._pressure_single[0], self._pressure_triple[0]))
-        self._pressure_index = 1
-
-    def open(self):
-        """Override Tank.open() to change pressure sensor after opening valve"""
-        super().open()
-        # Get next pressure values, cycling back to start if we reach the end
-        single_pressure = self._pressure_single[self._pressure_index % len(self._pressure_single)]
-        triple_pressure = self._pressure_triple[self._pressure_index % len(self._pressure_triple)]
-        self.pressure_sensor = MockPressureSensorStatic(single_pressure, triple_pressure)
-        self._pressure_index += 1
-
-class MPRLSList(MPRLSFile):
-    def __init__(self, values: list[float]):
-        # Create a temporary file with the values
-        temp_file = tempfile.NamedTemporaryFile(mode='w+', suffix='.txt', delete=False)
-        try:
-            # Write each value on a new line
-            for value in values:
-                temp_file.write(f"{value}\n")
-            temp_file.close()
-            # Initialize parent with the temporary file path
-            super().__init__(temp_file.name)
-        finally:
-            # Clean up the temporary file
-            import os
-            os.unlink(temp_file.name)
 
 @pytest.fixture
 def mock_multiprint(monkeypatch):
@@ -274,7 +234,35 @@ def test_cleanup_no_error(setup_process, vent_hot_air_instance: VentHotAir):
 # Cyclomatic Complexity Path Tests
 # -----------------------------------------
 
+def test_dpv_temp_increasing_abort(monkeypatch, setup_process, vent_hot_air_instance: VentHotAir, mock_log_process: LogPressures):
+    """t_small test ΔPtank ≈ 0."""
+    monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
+    mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
+    Process.set_rtc(mock_rtc)
 
+    mock_log_process.set_temp_thresh_reached(False) # Did not reach thresholds
+    vent_hot_air_instance.set_log_pressures(mock_log_process)
+    main_valve = MockValve(1, "Main")
+    dynamic_valve = MockValve(2, "Dynamic")
+    static_valve = MockValve(3, "Static")
+    valve_1 = MockValve(4, "1")
+    valve_2 = MockValve(5, "2")
+    all_valves = [main_valve, dynamic_valve, static_valve, valve_1, valve_2]
+    vent_hot_air_instance.set_all_valves(all_valves)
+    vent_hot_air_instance.set_main_valve(main_valve)
+    vent_hot_air_instance.set_static_valve(static_valve)
+    dpv_temp = MockTimeDependentTemperatureSensor(rtc=mock_rtc, time_temp_pairs=[
+        (15000, 420),
+        (16000, 450)
+    ])
+    vent_hot_air_instance.set_dpv_temperature_sensor(dpv_temp)
+
+    vent_hot_air_instance.run()
+    
+    logs = Process.multiprint.logs[Process.output_log.name]
+
+    assert any("Temperature is increasing (" in log for log in logs)
+    assert any("Aborting Venting!" in log for log in logs)
 
 # -----------------------------------------
 # Tests for triple pressure

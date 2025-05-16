@@ -6,7 +6,8 @@ sys.path.append(str(Path(__file__).parent.parent.absolute()))
 import tempfile
 import os
 import time
-from pi.MPRLS import MPRLSFile, MPRLSWrappedSensor, MockPressureSensorStatic, NovaPressureSensor, MCP9600Thermocouple
+from pi.MPRLS import MPRLSFile, MPRLSWrappedSensor, MockPressureSensorStatic, MockTimeDependentTemperatureSensor, NovaPressureSensor, MCP9600Thermocouple
+from pi.RTC import RTCFile
 
 # -----------------------------------------
 # Tests for MPRLSWrappedSensor
@@ -560,3 +561,20 @@ def test_MCP9600_no_lib(monkeypatch):
     dummy_line = object()
     sensor = MCP9600Thermocouple(dummy_line)
     assert sensor.cant_connect == True
+
+
+def test_MockTimeDependentTemperatureSensor_standard():
+    """Basic test for the implementation"""
+    mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
+    temp_sensor = MockTimeDependentTemperatureSensor(rtc=mock_rtc, time_temp_pairs=[
+        (15000, 450),
+        (16000, 420)
+    ])
+
+    assert temp_sensor.temperature == 450
+    assert temp_sensor.triple_temperature == 450
+
+    mock_rtc.setEstT0(int(time.time() * 1000 - 16000)) # Put us at T+16000ms
+
+    assert temp_sensor.temperature == 420
+    assert temp_sensor.triple_temperature == 420

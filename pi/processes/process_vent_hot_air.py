@@ -24,8 +24,9 @@ class VentHotAir(Process):
         
         # Variables for tracking temperature change
         self.temp_history: list[tuple[float, int]] = []  # List of (temperature, timestamp) pairs
-        self.TEMP_CHANGE_THRESHOLD: float = 5.0  # Kelvin per second
-        self.TEMP_COMPARISON_INTERVAL: int = 500  # milliseconds (0.5 seconds)
+        self.TEMP_CHANGE_THRESHOLD: float = 5.0  # (Kelvin per second) How much the temperature must increase for us to abort
+        self.TEMP_COMPARISON_INTERVAL: int = 500  # (milliseconds) How much time over which to check for temperature changes. Still happens as often as the sensor can be read from.
+        self.OLD_DATA_BUFFER_TIME: int = 250 # (milliseconds) How much extra time to keep the temperature data in memory past the TEMP_COMPARISON_INTERVAL
 
     def set_log_pressures(self, log_pressures_process: LogPressures):
         self.log_pressures = log_pressures_process
@@ -122,18 +123,19 @@ class VentHotAir(Process):
             self.temp_history.append((current_dpv_temp, current_time))
             
             # Remove old readings (much older than our comparison interval)
-            cutoff_time = current_time - self.TEMP_COMPARISON_INTERVAL
-            self.temp_history = [(temp, t) for temp, t in self.temp_history if t > cutoff_time * 2]
+            old_data_cutoff_time = current_time - self.TEMP_COMPARISON_INTERVAL - self.OLD_DATA_BUFFER_TIME
+            self.temp_history = [(temp, time) for temp, time in self.temp_history if time > (old_data_cutoff_time)]
 
             # Create temporary list without those younger than cutoff time. We're left with samples from cutoff_time -> cutoff_time * 2
-            temporary_hist = [(temp, t) for temp, t in self.temp_history if t < cutoff_time]
+            new_data_cutoff_time = current_time - self.TEMP_COMPARISON_INTERVAL
+            temporary_temperature_hist = [(temp, time) for temp, time in self.temp_history if time < new_data_cutoff_time]
             
             # Only compare if we have a reading from at least 0.5s ago
-            if len(temporary_hist) >= 2:
-                oldest_temp, oldest_time = temporary_hist[-1]
+            if len(temporary_temperature_hist) >= 2:
+                oldest_temp, oldest_time = temporary_temperature_hist[-1]
                 time_diff_seconds = (current_time - oldest_time) / 1000.0  # Convert ms to seconds
                 temp_change_rate = (current_dpv_temp - oldest_temp) / time_diff_seconds
-                
+
                 if temp_change_rate > self.TEMP_CHANGE_THRESHOLD:
                     Process.get_multiprint().pform(f"Temperature is increasing ({temp_change_rate:.2f}K/s)! Aborting Venting!", 
                                                     current_time, Process.get_output_log())

@@ -10,6 +10,8 @@ import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent.absolute()))
 
+from pi.RTC import RTC
+
 try:
     import adafruit_mprls
 except ImportError:
@@ -682,3 +684,83 @@ class MCP9600Thermocouple(TemperatureSensor):
             except Exception:
                 pass
         return median(temperatures) + self._CELCIUS_TO_KELVIN if temperatures else -1
+
+class MockTemperatureSensorStatic(TemperatureSensor):
+    """Mock TemperatureSensor class to simulate temperature readings which are constant for testing."""
+
+    def __init__(self, temperature: float, triple_temperature: Optional[float] = None):
+
+        self._temperature_value = temperature
+        if triple_temperature is None:
+            self._triple_temperature_value = temperature
+        else:
+            self._triple_temperature_value = triple_temperature
+            
+        if self.temperature == -1 or self.triple_temperature == -1:
+            self._cant_connect = True
+        else:
+            self._cant_connect = False
+
+    @property
+    def ready(self) -> bool:
+        return not self._cant_connect
+
+    @property
+    def temperature(self) -> float:
+        """Simulate getting a single temperature reading."""
+        return self._temperature_value
+    
+    @temperature.setter
+    def temperature(self, value):
+        """
+        Does nothing.
+        """
+        warn("You tried to set the temperature! There is something wrong with your implementation.")
+
+    @property
+    def triple_temperature(self) -> float:
+        """Simulate getting a median of three temperature readings."""
+        time.sleep(0.001) # MPRLS sample rate is 200 Hz https://forums.adafruit.com/viewtopic.php?p=733797
+                          # Simulate 2 sleeps for reading from the actual sensor
+        return self._triple_temperature_value
+    
+    @triple_temperature.setter
+    def triple_temperature(self, value):
+        """
+        Does nothing.
+        """
+        warn("You tried to set the temperature! There is something wrong with your implementation.")
+
+class MockTimeDependentTemperatureSensor(TemperatureSensor):
+    """
+    Mock TemperatureSensor that returns a temperature based on the current time.
+    You provide a list of (time_ms, temperature) pairs. The temperature returned
+    is the last value whose time_ms <= current time.
+    """
+    def __init__(self, time_temp_pairs: list[tuple[int, float]], rtc: RTC):
+        """
+        time_temp_pairs: List of (time_ms, temperature) tuples, sorted by time_ms ascending.
+        rtc: The RTC instance to get the current time in ms.
+        """
+        self.time_temp_pairs = sorted(time_temp_pairs)
+        self.rtc = rtc
+        self._cant_connect = False
+
+    @property
+    def ready(self):
+        return not self._cant_connect
+
+    @property
+    def temperature(self):
+        now = self.rtc.getTPlusMS()
+        temp = self.time_temp_pairs[0][1]
+        for t, v in self.time_temp_pairs:
+            if now >= t:
+                temp = v
+            else:
+                break
+        return temp
+
+    @property
+    def triple_temperature(self):
+        return self.temperature
