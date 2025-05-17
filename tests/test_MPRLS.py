@@ -468,6 +468,32 @@ def test_mprlsfile_get_triple_pressure():
                 expected_values+=[-1]
         assert sensor.triple_pressure == sorted(expected_values)[1]  # Median calculation
 
+def test_mprlsfile_triple_pressure_eof():
+    """Even if we reach the end of file, we should still return the median of the first pressures"""
+    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+        temp_file.write(b"10.5\n30.7\n")
+        temp_filename = temp_file.name
+    
+    sensor = MPRLSFile(temp_filename)
+    assert sensor.data == [10.5, 30.7]
+    assert sensor.triple_pressure == 20.6
+    assert sensor.ready is True
+    assert sensor.cant_connect is False
+    os.remove(temp_filename)
+
+def test_mprlsfile_triple_pressure_handles_all_invalid_readings():
+    """Even if we reach the end of file, we should still return the median of the first pressures"""
+    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+        temp_file.write(b"-1\n-1\n-1\n")
+        temp_filename = temp_file.name
+    
+    sensor = MPRLSFile(temp_filename)
+    assert sensor.data == [-1, -1, -1]
+    assert sensor.triple_pressure == -1
+    assert sensor.ready is True
+    assert sensor.cant_connect is False
+    os.remove(temp_filename)
+
 def test_mprlsfile_corrupted_data():
     with tempfile.NamedTemporaryFile(delete=False) as temp_file:
         temp_file.write(b"10.5\nINVALID\n30.7\n")
