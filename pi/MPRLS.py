@@ -191,6 +191,7 @@ class NovaPressureSensor(PressureTemperatureSensor):
     """Implementation of the NovaSensor NPI-19-I2C pressure sensor (30 psi absolute pressure)."""
     
     I2C_ADDRESS = 0x28      # Default I2C address
+    I2C_LOCK_TIMEOUT = 10   # (milliseconds) How long to wait before giving up on the i2c line lock
     P_MIN = 1638            # Digital count at minimum pressure (10% VDD)
     P_MAX = 14745           # Digital count at maximum pressure (90% VDD)
     PSI_MIN = 0             # Absolute pressure sensor, minimum at vacuum
@@ -220,19 +221,30 @@ class NovaPressureSensor(PressureTemperatureSensor):
         int
             Pressure in digital counts. -1 if there's an error.
         """
+        i2c_lock_deadline = time.monotonic() + self.I2C_LOCK_TIMEOUT
+
         try:
-            if self.channel.try_lock():
-                try:
-                    incoming_buffer = bytearray(2)
-                    self.channel.readfrom_into(self.I2C_ADDRESS, incoming_buffer)
-                    raw_pressure = ((incoming_buffer[0] & 0x3F) << 8) | incoming_buffer[1] # Only bits 13-0, first two are status bit
-                    return raw_pressure
-                finally:
-                    self.channel.unlock()
-            else:
-                return -1
+            while not self.channel.try_lock(): # Try to grab the bus lock until timeout
+                if time.monotonic() >= i2c_lock_deadline:
+                    # failed to lock in time
+                    return -1
+                # small pause to yield CPU
+                time.sleep(0.0005)
         except Exception:
             return -1
+
+        try:
+            incoming_buffer = bytearray(2)
+            self.channel.readfrom_into(self.I2C_ADDRESS, incoming_buffer)
+            raw_pressure = ((incoming_buffer[0] & 0x3F) << 8) | incoming_buffer[1] # Only bits 13-0, first two are status bit
+            return raw_pressure
+        except Exception:
+            return -1
+        finally:
+            try:
+                self.channel.unlock()
+            except Exception: # if unlock itself somehow fails, there's not much we can do
+                pass
         
     def _read_pressure_and_temp_digital(self) -> tuple[int, int]:
         """
@@ -245,20 +257,31 @@ class NovaPressureSensor(PressureTemperatureSensor):
         int
             Temperature in digital counts. -1 if there's an error.
         """
+        i2c_lock_deadline = time.monotonic() + self.I2C_LOCK_TIMEOUT
+
         try:
-            if self.channel.try_lock():
-                try:
-                    incoming_buffer = bytearray(4)
-                    self.channel.readfrom_into(self.I2C_ADDRESS, incoming_buffer)
-                    raw_pressure = ((incoming_buffer[0] & 0x3F) << 8) | incoming_buffer[1] # Only bits 13-0, first two are status bit
-                    raw_temperature = (incoming_buffer[2] << 3) | ((incoming_buffer[3] & 0xE0) >> 5) # All 3rd byte bits and top 3 bits of fourth byte for temperature
-                    return (raw_pressure, raw_temperature)
-                finally:
-                    self.channel.unlock()
-            else:
-                return (-1, -1)
+            while not self.channel.try_lock(): # Try to grab the bus lock until timeout
+                if time.monotonic() >= i2c_lock_deadline:
+                    # failed to lock in time
+                    return (-1, -1)
+                # small pause to yield CPU
+                time.sleep(0.0005)
         except Exception:
             return (-1, -1)
+        
+        try:
+            incoming_buffer = bytearray(4)
+            self.channel.readfrom_into(self.I2C_ADDRESS, incoming_buffer)
+            raw_pressure = ((incoming_buffer[0] & 0x3F) << 8) | incoming_buffer[1] # Only bits 13-0, first two are status bit
+            raw_temperature = (incoming_buffer[2] << 3) | ((incoming_buffer[3] & 0xE0) >> 5) # All 3rd byte bits and top 3 bits of fourth byte for temperature
+            return (raw_pressure, raw_temperature)
+        except Exception:
+            return (-1, -1)
+        finally:
+            try:
+                self.channel.unlock()
+            except Exception: # if unlock itself somehow fails, there's not much we can do
+                pass
     
     def _convert_pressure_hpa(self, digital_pressure: int) -> float:
         """
