@@ -161,7 +161,7 @@ if multiplex != False:
     if dpv_temp_sensor.cant_connect:
         mprint.p("COULD NOT CONNECT TO DPV THERMOCOUPLE!! Time: " + str(timeMS()) + " ms", output_log)
     
-    mprint.p("Pressure Sensors connected. Time: " + str(timeMS()) + " ms", output_log)
+    mprint.p("Pressure & Temperature Sensors connected. Time: " + str(timeMS()) + " ms", output_log)
 else:
     mprint.p("NOT CONNECTING TO THE I2C SENSORS because there's no multiplexer on the line!!. Time: " + str(timeMS()) + " ms", output_log)
 # ----------------------------------------------------------------------

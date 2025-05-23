@@ -79,7 +79,7 @@ def gswitch_callback(channel, GSWITCH_PIN: int):
     -------
     None.
     """
-    
+
     t0 = timeMS()
     GPIO.remove_event_detect(GSWITCH_PIN)
 
@@ -87,8 +87,10 @@ def gswitch_callback(channel, GSWITCH_PIN: int):
     estimated_diff_ms = t0 - prior_t0
 
     if (estimated_diff_ms < -120000 or estimated_diff_ms > 5000): # Only accept between T-120s and T+5s
-        Process.get_multiprint().pform("G-Switch input! Difference from RBF estimation: " + str(estimated_diff_ms) + " ms, which is too far off! We'll ignore it!", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+        if Process.can_log():
+            Process.get_multiprint().pform("G-Switch input! Difference from RBF estimation: " + str(estimated_diff_ms) + " ms, which is too far off! We'll ignore it!", Process.get_rtc().getTPlusMS(), Process.get_output_log())
         return
 
     difference = Process.get_rtc().setEstT0(t0)
-    Process.get_multiprint().pform("G-Switch input! New t0: " + str(t0) + " ms. Difference from RBF estimation: " + str(difference) + " ms", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+    if Process.can_log():
+        Process.get_multiprint().pform("G-Switch input! New t0: " + str(t0) + " ms. Difference from RBF estimation: " + str(difference) + " ms", Process.get_rtc().getTPlusMS(), Process.get_output_log())
