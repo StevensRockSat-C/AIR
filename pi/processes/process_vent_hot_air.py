@@ -112,9 +112,11 @@ class VentHotAir(Process):
         while Process.get_rtc().getTPlusMS() < (vent_start_time + self.t_VENT): #t_vent time passed?
             self.log_pressures.run()
 
-            current_dpv_temp = self.dpv_temperature_sensor.temperature
+            current_dpv_temp = self.dpv_temperature_sensor.triple_temperature
+            if current_dpv_temp <= 0: # If it's an invalid reading
+                continue
 
-            if current_dpv_temp < self.T_VENT_TARGET and self.dpv_temperature_sensor.triple_temperature < self.T_VENT_TARGET: # Utilize short-circuit eval
+            if current_dpv_temp < self.T_VENT_TARGET:
                 Process.get_multiprint().pform(f"DPV Temperature ({current_dpv_temp}K) is less than VENT_TARGET ({self.T_VENT_TARGET}K). Finished Venting.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
                 break
             
@@ -126,20 +128,23 @@ class VentHotAir(Process):
             old_data_cutoff_time = current_time - self.TEMP_COMPARISON_INTERVAL - self.OLD_DATA_BUFFER_TIME
             self.temp_history = [(temp, time) for temp, time in self.temp_history if time > (old_data_cutoff_time)]
 
-            # Create temporary list without those younger than cutoff time. We're left with samples from cutoff_time -> cutoff_time * 2
+            # Create temporary list without those younger than cutoff time. We're left with samples from TEMP_COMPARISON_INTERVAL -> TEMP_COMPARISON_INTERVAL + OLD_DATA_BUFFER_TIME
             new_data_cutoff_time = current_time - self.TEMP_COMPARISON_INTERVAL
-            temporary_temperature_hist = [(temp, time) for temp, time in self.temp_history if time < new_data_cutoff_time]
+            temporary_temperature_hist = [(temp, time) for temp, time in self.temp_history if time <= new_data_cutoff_time]
             
             # Only compare if we have a reading from at least 0.5s ago
-            if len(temporary_temperature_hist) >= 2:
-                oldest_temp, oldest_time = temporary_temperature_hist[-1]
-                time_diff_seconds = (current_time - oldest_time) / 1000.0  # Convert ms to seconds
-                temp_change_rate = (current_dpv_temp - oldest_temp) / time_diff_seconds
+            if len(temporary_temperature_hist) < 2:
+                continue
+            
+            # Get the latest reading after the cutoff_time
+            old_temp, old_time = temporary_temperature_hist[-1]
+            time_diff_seconds = (current_time - old_time) / 1000.0  # Convert ms to seconds
+            temp_change_rate = (current_dpv_temp - old_temp) / time_diff_seconds
 
-                if temp_change_rate > self.TEMP_CHANGE_THRESHOLD:
-                    Process.get_multiprint().pform(f"Temperature is increasing ({temp_change_rate:.2f}K/s)! Aborting Venting!", 
-                                                    current_time, Process.get_output_log())
-                    break
+            if temp_change_rate > self.TEMP_CHANGE_THRESHOLD:
+                Process.get_multiprint().pform(f"Temperature is increasing ({old_temp:.1f}K -> {current_dpv_temp:.1f}K over {time_diff_seconds}s = {temp_change_rate:.2f}K/s)! Aborting Venting!", 
+                                                current_time, Process.get_output_log())
+                break
         
         self.main_valve.close()
         self.static_valve.close()

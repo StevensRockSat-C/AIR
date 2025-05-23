@@ -364,10 +364,10 @@ def test_dpv_temp_same(monkeypatch, setup_process, vent_hot_air_instance: VentHo
     assert not any("Aborting Venting!" in log for log in logs)
     assert not any(f"DPV Temperature (200K) is less than VENT_TARGET (380K). Finished Venting." in log for log in logs)
     assert any("Closed Main Valve and Static Valve." in log for log in logs) 
+
 # -----------------------------------------
 # Tests for triple pressure
 # -----------------------------------------
-
 def test_triple_dpv_temp_lessthan_target(monkeypatch, setup_process, vent_hot_air_instance: VentHotAir, mock_log_process: LogPressures):
     """t_small test DPV temp staying the same until t_vent time elapses."""
     monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
@@ -402,10 +402,10 @@ def test_triple_dpv_temp_lessthan_target(monkeypatch, setup_process, vent_hot_ai
 
     assert not any("Temperature is increasing (" in log for log in logs)
     assert not any("Aborting Venting!" in log for log in logs)
-    assert not any("DPV Temperature (220K) is less than VENT_TARGET (380K). Finished Venting." in log for log in logs)
+    assert not any("DPV Temperature (200K) is less than VENT_TARGET (380K). Finished Venting." in log for log in logs)
     assert any("Closed Main Valve and Static Valve." in log for log in logs) 
 
-def test_triple_dpv_temp_increasing_(monkeypatch, setup_process, vent_hot_air_instance: VentHotAir, mock_log_process: LogPressures):
+def test_triple_dpv_temp_increasing(monkeypatch, setup_process, vent_hot_air_instance: VentHotAir, mock_log_process: LogPressures):
     """t_small test DPV temp staying the same until t_vent time elapses."""
     monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
     mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
@@ -437,7 +437,7 @@ def test_triple_dpv_temp_increasing_(monkeypatch, setup_process, vent_hot_air_in
     
     logs = Process.multiprint.logs[Process.output_log.name]
 
-    assert any("Temperature is increasing (59.88K/s)! Aborting Venting!" in log for log in logs)
+    assert any("Temperature is increasing (420.0K -> 460.0K over 0.5s = 80.00K/s)! Aborting Venting!" in log for log in logs)
     assert any("Closed Main Valve and Static Valve." in log for log in logs) 
 
 # -----------------------------------------
@@ -525,8 +525,7 @@ def test_unconnected_thermocouple_delta(monkeypatch, setup_process, vent_hot_air
     dpv_temp = MockTimeDependentTemperatureSensor(rtc=mock_rtc, time_temp_pairs=[
         (15000, 500),
         (16000, -1),
-        (17000, 510),
-        (18000, 520)
+        (17000, -1)
     ])
     vent_hot_air_instance.set_dpv_temperature_sensor(dpv_temp)
 
@@ -563,8 +562,7 @@ def test_unconnected_triple_thermocouple_delta(monkeypatch, setup_process, vent_
     ], triple_time_temp_pairs= [
         (15000, 510),
         (16000, -1),
-        (17000, 520),
-        (18000, 530)
+        (17000, -1)
     ])
     vent_hot_air_instance.set_dpv_temperature_sensor(dpv_temp)
 
