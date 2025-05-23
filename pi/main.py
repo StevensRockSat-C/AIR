@@ -1,26 +1,21 @@
 """
-This is the script for the Main Raspberry Pi, written by Anthony Ford.
+This is the script for the Main Raspberry Pi, written by Anthony Ford and Nerissa Lundquist.
 
 This does the following:
     Uses MultiPrint for filewriting
     Pulls the valves low at boot
     Connects to ALL i2c devices
         Can handle any i2c device not connecting (in terms of not crashing)
+    Adjust procedures if any sensors cannot connect
     Gets RTC time
         Keeps track of T+
     Logs pressures
     Sample collections
-    Use the flowchart to build error handling
-        A protocol for if pressures are not right
-            or if otherwise bad things happening
-    Adjust procedures if an MRPLS cannot connect
-
-This STILL NEEDS TO DO:
-    CONTINUALLY log vibration data
-    Prevent bleeding if proper conditions cannot be validated
+    Implements all UML Activity Diagrams to build error handling
+    Adheres to all requirements of the 2024-25 Stevens RockSat-C program
 """
 
-# Communications
+# Communications & Paths
 from RPi import GPIO
 import sys
 from pathlib import Path
@@ -28,7 +23,7 @@ sys.path.append(str(Path(__file__).parent.parent.absolute()))
 
 from pi.collection import Collection
 
-# ---- SETTINGS ----
+# ------------------------------ SETTINGS ------------------------------
 VERSION = "skeleton.2025.5.23"
 
 DEFAULT_BOOT_TIME = 35000   # The estimated time to boot and run the beginnings of the script, in MS. Will be used only if RTC is not live
@@ -59,20 +54,14 @@ collection_dummy = Collection(num = 2,
                           choke_pressure = 0,
                           up_duration = 0
                           )
+# ----------------------------------------------------------------------
 
 collections = [collection_1, collection_dummy]
 
-
-from pi.valve import Valve
-from pi.tank import Tank
-from pi.MPRLS import MPRLSWrappedSensor, NovaPressureSensor
 from pi.processes.process import Process
 
 import time
-
-def timeMS():
-    """Get system time to MS."""
-    return round(time.time()*1000)
+from pi.utils import timeMS
 
 FIRST_ON_MS = timeMS() # Record the very first moment we are running the script
 TIME_LAUNCH_MS = -1
@@ -97,11 +86,14 @@ mprint.w("Time (ms),T+ (ms),Pressure Manifold (hPa),Pressure Tank 1 (hPa),Pressu
 
 
 
-# Sensors
+# Hardware & Sensors
 from adafruit_extended_bus import ExtendedI2C as I2C
 import adafruit_tca9548a
 from pi.RTC import RTCWrappedSensor  # Our home-built Realtime Clock lib
-from tests.test_MPRLS import DummyI2CChannel
+from pi.valve import Valve
+from pi.tank import Tank
+from pi.MPRLS import MPRLSWrappedSensor, NovaPressureSensor, MCP9600Thermocouple
+from tests.test_MPRLS import DummyI2CChannel # For stand-in sensors before defining them.
 
 # Init GPIO
 #   We do this before connecting to i2c devices because we want to make sure our valves are closed!
@@ -128,6 +120,7 @@ time.sleep(2)   # Needed to ensure i2c is properly initialized
 mprint.p("i2c initialized. Time: " + str(timeMS()) + " ms", output_log)
 
 # Connect to i2c devices
+# ----------------------------------------------------------------------
 multiplex = False
 try:
     multiplex = adafruit_tca9548a.TCA9548A(i2c)
@@ -137,10 +130,10 @@ except:
 
 # Create blank objects
 mprls_canister = MPRLSWrappedSensor()
-nova_manifold = NovaPressureSensor(DummyI2CChannel(0))
-nova_tank_1 = NovaPressureSensor(DummyI2CChannel(0))
-nova_tank_2 = NovaPressureSensor(DummyI2CChannel(0))
-dpv_temp_sensor = NovaPressureSensor(DummyI2CChannel(0)) # TODO: Thermocouple?
+nova_manifold = NovaPressureSensor(DummyI2CChannel(-1))
+nova_tank_1 = NovaPressureSensor(DummyI2CChannel(-1))
+nova_tank_2 = NovaPressureSensor(DummyI2CChannel(-1))
+dpv_temp_sensor = MCP9600Thermocouple(DummyI2CChannel(-1))
 
 if multiplex != False:
     # Canister MPRLS
@@ -149,7 +142,7 @@ if multiplex != False:
         mprint.p("COULD NOT CONNECT TO CANISTER MPRLS!! Time: " + str(timeMS()) + " ms", output_log)
 
     # Manifold NOVA sensor
-    nova_manifold = NovaPressureSensor(channel=multiplex[1])
+    nova_manifold = NovaPressureSensor(channel=multiplex[1], psi_max=100)
     if not nova_manifold.ready:
         mprint.p("COULD NOT CONNECT TO MANIFOLD NOVA SENSOR!! Time: " + str(timeMS()) + " ms", output_log)
 
@@ -163,15 +156,18 @@ if multiplex != False:
     if not nova_tank_2.ready:
         mprint.p("COULD NOT CONNECT TO TANK 2 NOVA SENSOR!! Time: " + str(timeMS()) + " ms", output_log)
 
-    # DPV NOVA sensor # TODO: Thermocouple?
-    dpv_temp_sensor = NovaPressureSensor(channel=multiplex[4])
-    if not dpv_temp_sensor.ready:
-        mprint.p("COULD NOT CONNECT TO DPV NOVA SENSOR!! Time: " + str(timeMS()) + " ms", output_log)
+    # DPV Thermocouple
+    dpv_temp_sensor = MCP9600Thermocouple(multiplexer_channel=multiplex[4])
+    if dpv_temp_sensor.cant_connect:
+        mprint.p("COULD NOT CONNECT TO DPV THERMOCOUPLE!! Time: " + str(timeMS()) + " ms", output_log)
     
     mprint.p("Pressure Sensors connected. Time: " + str(timeMS()) + " ms", output_log)
 else:
-    mprint.p("NOT CONNECTING TO THE PRESSURE SENSORS because there's no multiplexer on the line!!. Time: " + str(timeMS()) + " ms", output_log)
+    mprint.p("NOT CONNECTING TO THE I2C SENSORS because there's no multiplexer on the line!!. Time: " + str(timeMS()) + " ms", output_log)
+# ----------------------------------------------------------------------
 
+# Get our time bearings
+# ----------------------------------------------------------------------
 # Connect to the RTC
 rtc = RTCWrappedSensor(i2c)
 
@@ -195,9 +191,10 @@ else:   # Bruh. No RTC on the line. Guess that's it.
     mprint.pform("T0: " + str(TIME_LAUNCH_MS) + " ms", rtc.getTPlusMS(), output_log)
 
 Process.set_rtc(rtc)
+# ----------------------------------------------------------------------
 
 
-# Get our first pressure readings
+# Get our first pressure readings through LogPressures
 from pi.processes.process_log_pressures import LogPressures
 log_pressures_process = LogPressures()
 log_pressures_process.set_canister_pressure_sensor(mprls_canister)
@@ -205,38 +202,12 @@ log_pressures_process.set_dpv_temperature(dpv_temp_sensor)
 log_pressures_process.set_pressure_sensors([nova_manifold, nova_tank_1, nova_tank_2])
 log_pressures_process.run()
 
-# TODO: HOLY FUCK MAKE SURE THIS WORKS WITH LIMITS!
-def gswitch_callback(channel):
-    """
-    Handle the G-Switch input. This sets our reference T+0.
-
-    Parameters
-    ----------
-    channel : int
-        GPIO Pin.
-
-    Returns
-    -------
-    None.
-
-    """
-    t0 = timeMS()
-    GPIO.remove_event_detect(GSWITCH_PIN)
-
-    prior_t0 = rtc.getT0MS()
-    estimated_diff_ms = t0 - prior_t0
-
-    if (estimated_diff_ms < -120000 or estimated_diff_ms > 5000): # Only accept between T-120s and T+5s
-        mprint.pform("G-Switch input! Difference from RBF estimation: " + str(estimated_diff_ms) + " ms, which is too far off! We'll ignore it!", rtc.getTPlusMS(), output_log)
-        return
-
-    difference = rtc.setEstT0(t0)
-    mprint.pform("G-Switch input! New t0: " + str(t0) + " ms. Difference from RBF estimation: " + str(difference) + " ms", rtc.getTPlusMS(), output_log)
-    
 # Setup the G-Switch listener
+from pi.utils import gswitch_callback
 GPIO.setup(GSWITCH_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.add_event_detect(GSWITCH_PIN, GPIO.FALLING,
-                      callback=gswitch_callback, bouncetime=100)
+                      callback=lambda channel: gswitch_callback(channel, GSWITCH_PIN), 
+                      bouncetime=100)
 
 # Setup our Tank objects
 tank_1 = Tank(valve_1, nova_tank_1)
@@ -248,7 +219,7 @@ collection_dummy.tank = tank_2
 
 # FUN BITS HERE
 # Initial Pressure Check
-# ------------------------------------------------------------
+# ----------------------------------------------------------------------
 from pi.processes.process_initial_pressure_check import InitialPressureCheck
 initial_pressure_check_process = InitialPressureCheck()
 initial_pressure_check_process.set_tanks([tank_1, tank_2])
@@ -256,24 +227,24 @@ initial_pressure_check_process.set_log_pressures(log_pressures_process)
 initial_pressure_check_process.set_main_valve(valve_main)
 initial_pressure_check_process.set_manifold_pressure_sensor(nova_manifold)
 initial_pressure_check_process.run()
-# ------------------------------------------------------------
+# ----------------------------------------------------------------------
 
 # Swap Tanks
-# ------------------------------------------------------------
+# ----------------------------------------------------------------------
 from pi.processes.process_swap_tanks import SwapTanks
 swap_tanks_process = SwapTanks()
 swap_tanks_process.set_collections(collections)
 swap_tanks_process.set_tanks([tank_1, tank_2])
 swap_tanks_process.run()
-# ------------------------------------------------------------
+# ----------------------------------------------------------------------
 
 # Temp Time Adjust
-# ------------------------------------------------------------
+# ----------------------------------------------------------------------
 # TODO: This process!
-# ------------------------------------------------------------
+# ----------------------------------------------------------------------
 
 # Sample Upwards
-# ------------------------------------------------------------
+# ----------------------------------------------------------------------
 from pi.processes.process_sample_upwards import SampleUpwards
 sample_upwards_process = SampleUpwards()
 sample_upwards_process.set_log_pressures(log_pressures_process)
@@ -283,10 +254,10 @@ sample_upwards_process.set_dynamic_valve(valve_dynamic)
 sample_upwards_process.set_static_valve(valve_static)
 sample_upwards_process.set_manifold_pressure_sensor(nova_manifold)
 sample_upwards_process.run()
-# ------------------------------------------------------------
+# ----------------------------------------------------------------------
 
 # Vent Hot Air
-# ------------------------------------------------------------
+# ----------------------------------------------------------------------
 from pi.processes.process_vent_hot_air import VentHotAir
 vent_hot_air_process = VentHotAir()
 vent_hot_air_process.set_log_pressures(log_pressures_process)
@@ -294,11 +265,11 @@ vent_hot_air_process.set_all_valves([valve_main, valve_dynamic, valve_static, va
 vent_hot_air_process.set_dpv_temperature_sensor(dpv_temp_sensor)
 vent_hot_air_process.set_main_valve(valve_main)
 vent_hot_air_process.set_static_valve(valve_static)
-# ------------------------------------------------------------
+vent_hot_air_process.run()
+# ----------------------------------------------------------------------
 
-"""
-    Clean everything up
-"""
+# Clean everything up
+# ----------------------------------------------------------------------
 # Close the GPIO setup
 Valve.cleanup_all()
 mprint.pform("Cleaned up the GPIO", rtc.getTPlusMS(), output_log)
@@ -315,3 +286,4 @@ output_pressures.close()
 
 # Shutdown the system (No going back!)
 os.system("shutdown now")
+# ----------------------------------------------------------------------
