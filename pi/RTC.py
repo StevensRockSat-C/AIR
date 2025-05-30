@@ -45,25 +45,29 @@ class RTC(ABC):
 
 class RTCWrappedSensor(RTC):
     
-    def __init__(self, i2c):
+    def __init__(self, i2c, activated_at_T_plus_ms: int = -180000):
         """
         A wrapper for the DS3231 RTC for T0 tracking.
-        TODO: Currently built for launch at T-60. Must be re-written for proper launch!
+        Currently defaults to launch at T-180s.
 
         Parameters
         ----------
         i2c : ExtendedI2C
             i2c bus.
+        activated_at_T_plus_ms : int
+            How much to offset the T+plus reference. Simply specify when the payload is expected to turn on.
+            i.e. if you're set to 1.SYS.2 (standard activation), specify activated_at_T_plus_ms = 0
+            i.e. if you're set to 1.SYS.1 (early activation) at T-60s, specify specify activated_at_T_plus_ms = -60000
 
         """
         self.ready = False
+        self.ref = round(time.time()*1000) # This is only used if the RTC can't be found
         
         try:
-            self.ref = round(time.time()*1000) # This is only used if the RTC can't be found
-            self.ds3231 = adafruit_ds3231.DS3231(i2c)
+            self.ds3231 = adafruit_ds3231.DS3231(i2c) # The oscillator should take an average of 2s to start and calibrate, from the datasheet. However, it seems it accounts for this interenally, so we WILL NOT add the 2 seconds ourselves.
             self.rtcTime = self.ds3231.datetime
             self.now = round(time.time()*1000) # Get a fresh reference time
-            self.t0 = self.now - (((self.rtcTime.tm_min * 60) + self.rtcTime.tm_sec) * 1000) # The oscillator should take an average of 2s to start and calibrate, from the datasheet. However, it seems it accounts for this interenally, so we WILL NOT add the 2 seconds ourselves.
+            self.t0 = self.now - (((self.rtcTime.tm_min * 60) + self.rtcTime.tm_sec) * 1000) - activated_at_T_plus_ms 
             self.ready = True
         except:
             print("No RTC is on the i2c line?!")
