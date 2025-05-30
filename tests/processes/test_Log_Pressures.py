@@ -4,6 +4,8 @@ import pytest
 import tempfile
 from warnings import warn
 
+_original_time = time.time
+
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent.parent.absolute()))
@@ -327,3 +329,80 @@ def test_cleanup_no_error(setup_process, log_pressures_instance):
     """
     # Just ensure that calling cleanup() does not raise an exception.
     log_pressures_instance.cleanup()
+
+
+
+# -----------------------------------------
+# Profiling
+# -----------------------------------------
+import functools
+from collections import defaultdict
+
+# A simple decorator to time a function, in microseconds
+def microprofile(stats: dict = None):
+    """
+    Decorator to measure each call's duration (µs) and optionally aggregate stats.
+    
+    Args:
+        stats (dict): Optional dict to accumulate call counts and total time.
+                      Format: {func_name: {'calls': int, 'total_us': int}}
+    """
+    if stats is None:
+        stats = defaultdict(lambda: {'calls': 0, 'total_us': 0})
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            start_ns = time.perf_counter_ns()
+            result = func(*args, **kwargs)
+            end_ns = time.perf_counter_ns()
+            
+            elapsed_us = (end_ns - start_ns) // 1_000  # convert ns → µs
+
+            # Aggregate
+            entry = stats[func.__name__]
+            entry['calls'] += 1
+            entry['total_us'] += elapsed_us
+
+            return result
+
+        return wrapper
+
+    # allow decorator without parentheses
+    if callable(stats):
+        fn = stats
+        stats = defaultdict(lambda: {'calls': 0, 'total_us': 0})
+        return decorator(fn)
+    else:
+        return decorator
+
+# Example usage:
+
+# shared stats dict
+profile_stats = defaultdict(lambda: {'calls': 0, 'total_us': 0})
+
+@microprofile(stats=profile_stats)
+def run_log_pressure_profile(log_pressures_instance: LogPressures):
+    log_pressures_instance.run()
+
+def test_run_profiling(monkeypatch, setup_process, log_pressures_instance: LogPressures, mock_multiprint, mock_rtc, mock_pressures_log):
+    """Profile the process with the new optimizations"""
+    monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
+    mock_rtc = RTCFile(int(time.time() * 1000)) # Put us at T+0ms
+    Process.set_rtc(mock_rtc)
+    # Create three dummy pressure sensors with known pressures
+    pressure_sensors, dpv, canister_sensor = initalize_sensors(340, 340, 340, 350)
+
+    log_pressures_instance.set_pressure_sensors(pressure_sensors)
+    log_pressures_instance.set_dpv_temperature(dpv)
+    log_pressures_instance.set_canister_pressure_sensor(canister_sensor)
+    
+    while Process.get_rtc().getTPlusMS() < 1000:
+        run_log_pressure_profile(log_pressures_instance)
+    
+    # Print aggregated statistics
+    print("\nAggregated timing stats:")
+    for func, data in profile_stats.items():
+        avg_us = data['total_us'] / data['calls']
+        print(f"  {func:15s}: {data['calls']:3d} calls, "
+              f"total {data['total_us']} µs, avg {avg_us:2f} µs")
