@@ -38,13 +38,13 @@ VALVE_2_PIN = 23            # ASCO Second tank control pin. 16 (BOARD) -> 23 (BC
 GSWITCH_PIN = 25            # G-switch input pin
 
 # Setup our Colleciton objects. All durations are going to be the minimum actuation time
-collection_1 = Collection(num = 1, # TODO: ALL THESE NUMBERS ARE CURRENTLY ESTIMATES (5/4/2025)
-                          up_start_time = 16000,
-                          bleed_duration = 500, 
+collection_1 = Collection(num = 1, # THESE NUMBERS EXTRACTED FROM THE OVERLEAF DOCUMENTATION (6/1/2025)
+                          up_start_time = 16400,
+                          bleed_duration = 696, 
                           up_driving_pressure = 3290,
-                          up_final_stagnation_pressure = 1200,
-                          choke_pressure = 1500,
-                          up_duration = 700
+                          up_final_stagnation_pressure = 910,
+                          choke_pressure = 1840,
+                          up_duration = 593
                           )
 collection_dummy = Collection(num = 2,
                           up_start_time = 0,
