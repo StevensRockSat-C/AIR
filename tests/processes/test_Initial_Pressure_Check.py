@@ -401,3 +401,34 @@ def test_manifold_critical_all_tanks_good(setup_initial_pressure_check, initial_
     assert initial_pressure_check.plumbing_state == PlumbingState.MAIN_LINE_FAILURE
     assert initial_pressure_check.tanks[0].state == TankState.LAST_RESORT
 
+def test_manifold_disconnect_mid_check(setup_initial_pressure_check, initial_pressure_check, mock_log_process: LogPressures):
+    # ensure that a -1 isn't counted towards the delta pressure to set PlumbingState.MAIN_LINE_FAILURE
+    tanks = [MockTank("A", "test_Initial_Pressure_Check_all_good.csv"), MockTank("B", "test_Initial_Pressure_Check_all_good.csv"), MockTank("C", "test_Initial_Pressure_Check_all_good.csv")]
+    initial_pressure_check.set_tanks(tanks)
+    initial_pressure_check.set_main_valve(MockValve(10, "mockValve"))
+
+    man_press_sensor = MPRLSFile("tests/processes/test_Initial_Pressure_Check_disconnect_mid.csv") #file reads: 101 101 101 101 101 -1 -1 -1 -1 101
+    initial_pressure_check.set_manifold_pressure_sensor(man_press_sensor) 
+
+    pressure_log = mock_log_process
+    initial_pressure_check.set_log_pressures(pressure_log)
+
+    initial_pressure_check.run()
+
+    assert initial_pressure_check.plumbing_state == PlumbingState.READY #probably should still be ready if one is unconnected but next one is connected (and valid)
+
+def test_manifold_disconnect_after_disconnect_check(setup_initial_pressure_check, initial_pressure_check, mock_log_process: LogPressures):
+    # ensure that a -1 isn't counted towards the delta pressure to set PlumbingState.MAIN_LINE_FAILURE
+    tanks = [MockTank("A", "test_Initial_Pressure_Check_all_good.csv"), MockTank("B", "test_Initial_Pressure_Check_all_good.csv"), MockTank("C", "test_Initial_Pressure_Check_all_good.csv")]
+    initial_pressure_check.set_tanks(tanks)
+    initial_pressure_check.set_main_valve(MockValve(10, "mockValve"))
+
+    man_press_sensor = MPRLSFile("tests/processes/test_Initial_Pressure_Check_disconnect_start.csv") #file reads: 101 101 -1 -1 -1 -1 -1 -1 -1
+    initial_pressure_check.set_manifold_pressure_sensor(man_press_sensor) 
+
+    pressure_log = mock_log_process
+    initial_pressure_check.set_log_pressures(pressure_log)
+
+    initial_pressure_check.run()
+
+    assert initial_pressure_check.plumbing_state == PlumbingState.READY #if sensor disconnects even though its not marked disconnected, plumbing should be READY
