@@ -243,9 +243,12 @@ swap_tanks_process.run()
 # TODO: This process!
 # ----------------------------------------------------------------------
 
+#import sample upwards and vent hot air before we run sample upwards so we don't wait for imports before vent hot air
+from pi.processes.process_sample_upwards import SampleUpwards
+from pi.processes.process_vent_hot_air import VentHotAir
+
 # Sample Upwards
 # ----------------------------------------------------------------------
-from pi.processes.process_sample_upwards import SampleUpwards
 sample_upwards_process = SampleUpwards()
 sample_upwards_process.set_log_pressures(log_pressures_process)
 sample_upwards_process.set_collections(collections)
@@ -258,7 +261,6 @@ sample_upwards_process.run()
 
 # Vent Hot Air
 # ----------------------------------------------------------------------
-from pi.processes.process_vent_hot_air import VentHotAir
 vent_hot_air_process = VentHotAir()
 vent_hot_air_process.set_log_pressures(log_pressures_process)
 vent_hot_air_process.set_all_valves([valve_main, valve_dynamic, valve_static, valve_1, valve_2])
