@@ -955,3 +955,78 @@ def test_sample_main_line_failure_triple_pressure(monkeypatch, setup_process, sa
     assert      any(f"Tank {tank.valve.name} pressure (100 -> 100 hPa) and manifold pressure (800 -> 800 hPa) did not change significantly. There must be a main line failure!" in log for log in logs)
     assert not  any(f"Try #2" in log for log in logs)
     assert Process.get_plumbing_state() == PlumbingState.MAIN_LINE_FAILURE
+
+# -----------------------------------------
+# Tests for disconnections
+# -----------------------------------------
+
+def test_sample_tank_disconnect(monkeypatch, setup_process, sample_upwards_instance: SampleUpwards, mock_log_process: LogPressures):
+    """If sample tank disconnects after reference pressure taken, then ΔPtank should ≈ 0 because we can't assume it's changing."""
+    monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
+    mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
+    Process.set_rtc(mock_rtc)
+    
+    tank = MockTankWithDynamicPressure("A", pressure_single=[100, 150, -1, -1])
+    tank.state = TankState.READY
+    collection = Collection(
+        num=1, up_start_time=15500, bleed_duration=10, up_driving_pressure=1000,
+        up_final_stagnation_pressure=1000, choke_pressure=900, up_duration=10, tank=tank
+    )
+    sample_upwards_instance.set_log_pressures(mock_log_process)
+    sample_upwards_instance.set_collections([collection])
+    sample_upwards_instance.set_main_valve(MockValve(1, "Main"))
+    sample_upwards_instance.set_dynamic_valve(MockValve(2, "Dynamic"))
+    sample_upwards_instance.set_static_valve(MockValve(3, "Static"))
+    sample_upwards_instance.set_manifold_pressure_sensor(MockPressureSensorStatic(2000, 800))
+
+    sample_upwards_instance.run()
+
+    assert Process.plumbing_state == PlumbingState.MAIN_LINE_FAILURE
+
+def test_manifold_disconnect(monkeypatch, setup_process, sample_upwards_instance: SampleUpwards, mock_log_process: LogPressures):
+    """If sample tank disconnects after reference pressure taken, then ΔPtank should ≈ 0 because we can't assume it's changing."""
+    monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
+    mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
+    Process.set_rtc(mock_rtc)
+    
+    tank = MockTankWithDynamicPressure("A", pressure_single=[150, 150, 150, 150])
+    tank.state = TankState.READY
+    collection = Collection(
+        num=1, up_start_time=15500, bleed_duration=10, up_driving_pressure=1000,
+        up_final_stagnation_pressure=1000, choke_pressure=900, up_duration=10, tank=tank
+    )
+    sample_upwards_instance.set_log_pressures(mock_log_process)
+    sample_upwards_instance.set_collections([collection])
+    sample_upwards_instance.set_main_valve(MockValve(1, "Main"))
+    sample_upwards_instance.set_dynamic_valve(MockValve(2, "Dynamic"))
+    sample_upwards_instance.set_static_valve(MockValve(3, "Static"))
+    sample_upwards_instance.set_manifold_pressure_sensor(MPRLSList([800, 800, 800, -1, -1, -1])) # delta manifold != 0 but delta tank = 0
+
+    sample_upwards_instance.run()
+
+    assert tank.state == TankState.FAILED_SAMPLE
+
+def test_tank_disconnect_during_tsmall(monkeypatch, setup_process, sample_upwards_instance: SampleUpwards, mock_log_process: LogPressures):
+    """If sample tank disconnects after reference pressure taken, then ΔPtank should ≈ 0 because we can't assume it's changing."""
+    monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
+    mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
+    Process.set_rtc(mock_rtc)
+    
+    tank = MockTankWithDynamicPressure("A", pressure_single=[0, 150, -1, -1, -1, -1])
+    tank.state = TankState.READY
+    collection = Collection(
+        num=1, up_start_time=15500, bleed_duration=10, up_driving_pressure=1000,
+        up_final_stagnation_pressure=1000, choke_pressure=900, up_duration=10, tank=tank
+    )
+    sample_upwards_instance.set_log_pressures(mock_log_process)
+    sample_upwards_instance.set_collections([collection])
+    sample_upwards_instance.set_main_valve(MockValve(1, "Main"))
+    sample_upwards_instance.set_dynamic_valve(MockValve(2, "Dynamic"))
+    sample_upwards_instance.set_static_valve(MockValve(3, "Static"))
+    sample_upwards_instance.set_manifold_pressure_sensor(MPRLSList([800, 800, 800, 800, 800, 800])) 
+
+    sample_upwards_instance.run()
+
+    assert tank.state == TankState.FAILED_SAMPLE #should NOT try to sample again
+    logs = Process.multiprint.logs[Process.output_log.name]
+    assert not any ("Trying again" in log for log in logs)
