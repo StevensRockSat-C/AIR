@@ -105,7 +105,10 @@ class InitialPressureCheck(Process):
             delta_manifold_pressure = new_manifold_pressure - ref_manifold_pressure
             Process.get_multiprint().pform("Manifold pressure is " + str(new_manifold_pressure) + " hPa, from " + str(ref_manifold_pressure) + " hPa. Delta " + str(delta_manifold_pressure) + " hPa.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
             
-            if abs(delta_manifold_pressure) > 100:
+            if new_manifold_pressure == -1 or ref_manifold_pressure == -1:
+                Process.get_multiprint().pform(f"One or both of pressures taken are -1: ({ref_manifold_pressure}, {new_manifold_pressure}). Will assume plumbing state is READY", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+                Process.set_plumbing_state(PlumbingState.READY)
+            elif abs(delta_manifold_pressure) > 100:
                 # TODO: Log here
                 Process.set_plumbing_state(PlumbingState.MAIN_LINE_FAILURE)
             elif new_manifold_pressure > self.p_crit:

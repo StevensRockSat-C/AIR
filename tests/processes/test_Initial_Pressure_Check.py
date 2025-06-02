@@ -398,8 +398,12 @@ def test_manifold_critical_all_tanks_good(setup_initial_pressure_check, initial_
 
     initial_pressure_check.run()
 
-    assert initial_pressure_check.plumbing_state == PlumbingState.MAIN_LINE_FAILURE
-    assert initial_pressure_check.tanks[0].state == TankState.LAST_RESORT
+    assert initial_pressure_check.plumbing_state == PlumbingState.READY
+    for tank in tanks: 
+        assert tank.state == TankState.READY
+# ========================
+# DISCONNECTION TESTS
+# ========================
 
 def test_manifold_disconnect_mid_check(setup_initial_pressure_check, initial_pressure_check, mock_log_process: LogPressures):
     # ensure that a -1 isn't counted towards the delta pressure to set PlumbingState.MAIN_LINE_FAILURE
