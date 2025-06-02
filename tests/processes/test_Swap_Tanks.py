@@ -255,3 +255,40 @@ def test_cleanup(setup, swap_tanks_instance: SwapTanks):
 
     # The cleanup message should be the last log entry.
     assert (f"T+ {Process.rtc.getTPlusMS()} ms\tFinished Initial Pressure Check.") == Process.multiprint.logs[Process.output_log.name][-1]
+
+def test_tank_disconnect(setup, swap_tanks_instance: SwapTanks):
+    """Test execute() assigns tanks to collections based on triple pressure."""
+    # Create several mock tanks:
+    # One LAST_RESORT tank, two READY tanks, and one NOT_READY tank.
+    tank_ready0 = MockTankWithStaticPressure("R0", 400, 700)
+    tank_ready0.state = TankState.READY
+    tank_ready1 = MockTankWithStaticPressure("R1", -1, -1)
+    tank_ready1.state = TankState.UNREACHABLE
+    tank_ready2 = MockTankWithStaticPressure("R2", 500, 600)
+    tank_ready2.state = TankState.READY
+    tank_ready3 = MockTankWithStaticPressure("R3", 700, 400)
+    tank_ready3.state = TankState.READY
+
+    swap_tanks_instance.set_tanks([tank_ready0, tank_ready1, tank_ready2, tank_ready3])
+    # Create one collection for each tank.
+    col1 = MockCollection(1)
+    col2 = MockCollection(2)
+    col3 = MockCollection(3)
+    col4 = MockCollection(4)
+    swap_tanks_instance.set_collections([col1, col2, col3, col4])
+
+    # Run execute (assumes initialize has passed).
+    swap_tanks_instance.run()
+
+    # According to the code:
+    #  - The READY tanks (sorted by triple pressure: R3, R2, R0, R1).
+    assert col1.assigned_tank == tank_ready3
+    assert col2.assigned_tank == tank_ready2
+    assert col3.assigned_tank == tank_ready0
+    assert col4.assigned_tank == tank_ready1
+
+    # Also verify that the log messages include the expected assignment messages.
+    assert (f"T+ {Process.rtc.getTPlusMS()} ms\tAssigned tank R3 to Collection 1") in Process.multiprint.logs[Process.output_log.name]
+    assert (f"T+ {Process.rtc.getTPlusMS()} ms\tAssigned tank R2 to Collection 2") in Process.multiprint.logs[Process.output_log.name]
+    assert (f"T+ {Process.rtc.getTPlusMS()} ms\tAssigned tank R0 to Collection 3") in Process.multiprint.logs[Process.output_log.name]
+    assert (f"T+ {Process.rtc.getTPlusMS()} ms\tAssigned tank R1 to Collection 4") in Process.multiprint.logs[Process.output_log.name]
