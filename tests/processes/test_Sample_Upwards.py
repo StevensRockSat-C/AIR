@@ -966,7 +966,7 @@ def test_sample_tank_disconnect(monkeypatch, setup_process, sample_upwards_insta
     mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
     Process.set_rtc(mock_rtc)
     
-    tank = MockTankWithDynamicPressure("A", pressure_single=[100, 150, -1, -1])
+    tank = MockTankWithDynamicPressure("A", pressure_single=[100, -1, -1, -1])
     tank.state = TankState.READY
     collection = Collection(
         num=1, up_start_time=15500, bleed_duration=10, up_driving_pressure=1000,
@@ -984,7 +984,7 @@ def test_sample_tank_disconnect(monkeypatch, setup_process, sample_upwards_insta
     assert Process.plumbing_state == PlumbingState.MAIN_LINE_FAILURE
 
 def test_manifold_disconnect(monkeypatch, setup_process, sample_upwards_instance: SampleUpwards, mock_log_process: LogPressures):
-    """If sample tank disconnects after reference pressure taken, then ΔPtank should ≈ 0 because we can't assume it's changing."""
+    """If manifold sensor disconnects after reference pressure taken, then ΔPmanifold should ≈ 0 because we can't assume it's changing."""
     monkeypatch.setattr(time, "time", _original_time) # Force time to be fake_time, not incrementing
     mock_rtc = RTCFile(int(time.time() * 1000 - 15000)) # Put us at T+15000ms
     Process.set_rtc(mock_rtc)
