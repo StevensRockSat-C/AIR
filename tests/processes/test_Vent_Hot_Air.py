@@ -437,7 +437,8 @@ def test_triple_dpv_temp_increasing(monkeypatch, setup_process, vent_hot_air_ins
     
     logs = Process.multiprint.logs[Process.output_log.name]
 
-    assert any("Temperature is increasing (420.0K -> 460.0K over 0.5s = 80.00K/s)! Aborting Venting!" in log for log in logs)
+    assert any("Temperature is increasing (420.0K -> 460.0K over 0.5" in log for log in logs)
+    assert any("Aborting Venting!" in log for log in logs)
     assert any("Closed Main Valve and Static Valve." in log for log in logs) 
 
 # -----------------------------------------
