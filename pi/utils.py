@@ -57,7 +57,6 @@ def timeMS():
     """Get system time to MS."""
     return round(time.time()*1000)
 
-# TODO: HOLY FUCK MAKE SURE THIS WORKS WITH LIMITS!
 def gswitch_callback(channel, GSWITCH_PIN: int):
     """
     Handle the G-Switch input. This sets our reference T+0.

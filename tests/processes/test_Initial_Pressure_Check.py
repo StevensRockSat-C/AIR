@@ -86,7 +86,43 @@ def test_initialize(setup_initial_pressure_check, initial_pressure_check, mock_m
 
     assert ("T+  ms\t" + "Initializing Initial Pressure Check.") in mp_logs
 
-# TODO: Add tests for missing main valve
+def test_initialize_failure_tanks(setup_initial_pressure_check, initial_pressure_check: InitialPressureCheck, mock_multiprint, mock_rtc, mock_log, mock_pressures_log):
+    """Test the initialization process."""
+    
+    pressure_log = mock_pressures_log
+    initial_pressure_check.set_log_pressures(pressure_log)
+    
+    initial_pressure_check.run()
+
+    mp_logs = list(map(lambda elem: re.sub(r'\d{13}', '', elem), Process.multiprint.logs[Process.output_log.name])) #remove timestamps for testing
+    assert ("T+  ms\t" + "Tanks not set for Initial Pressure Check! Aborting Process.") in mp_logs
+
+def test_initialize_failure_manifold_pressure_sensor(setup_initial_pressure_check, initial_pressure_check: InitialPressureCheck, mock_multiprint, mock_rtc, mock_log, mock_pressures_log):
+    """Test the initialization process."""
+    
+    pressure_log = mock_pressures_log
+    initial_pressure_check.set_log_pressures(pressure_log)
+    tanks = [MockTank("A", "test_Initial_Pressure_Check_all_good.csv"), MockTank("B", "test_Initial_Pressure_Check_all_good.csv"), MockTank("C", "test_Initial_Pressure_Check_all_good.csv")]
+    initial_pressure_check.set_tanks(tanks)
+    
+    initial_pressure_check.run()
+
+    mp_logs = list(map(lambda elem: re.sub(r'\d{13}', '', elem), Process.multiprint.logs[Process.output_log.name])) #remove timestamps for testing
+    assert ("T+  ms\t" + "Manifold Pressure Sensor not set for Initial Pressure Check! Aborting Process.") in mp_logs
+
+def test_initialize_failure_main_valve(setup_initial_pressure_check, initial_pressure_check: InitialPressureCheck, mock_multiprint, mock_rtc, mock_log, mock_pressures_log):
+    """Test the initialization process."""
+    
+    pressure_log = mock_pressures_log
+    initial_pressure_check.set_log_pressures(pressure_log)
+    tanks = [MockTank("A", "test_Initial_Pressure_Check_all_good.csv"), MockTank("B", "test_Initial_Pressure_Check_all_good.csv"), MockTank("C", "test_Initial_Pressure_Check_all_good.csv")]
+    initial_pressure_check.set_tanks(tanks)
+    initial_pressure_check.set_manifold_pressure_sensor(MockPressureSensorStatic(100, 110))
+    
+    initial_pressure_check.run()
+
+    mp_logs = list(map(lambda elem: re.sub(r'\d{13}', '', elem), Process.multiprint.logs[Process.output_log.name])) #remove timestamps for testing
+    assert ("T+  ms\t" + "Main Valve not set for Initial Pressure Check! Aborting Process.") in mp_logs
 
 def test_all_good(setup_initial_pressure_check, initial_pressure_check: InitialPressureCheck, mock_log_process: LogPressures):
     """Test when all tanks have good pressure."""
@@ -303,6 +339,9 @@ def test_manifold_failing_one_LAST_RESORT(setup_initial_pressure_check, initial_
     assert initial_pressure_check.tanks[1].state == TankState.LAST_RESORT #since values in test_Initial_Pressure_Check_all_good.csv are: 100, 101.1, 101.1, 101.1, 101.1
     assert initial_pressure_check.tanks[0].state == TankState.UNSAFE #since values in test_Initial_Pressure_Check_atmospheric.csv are: 1000.1, 1000.1, ...
 
+    mp_logs = list(map(lambda elem: re.sub(r'\d{13}', '', elem), Process.multiprint.logs[Process.output_log.name])) #remove timestamps for testing
+    assert (f"T+  ms\tThe manifold pressure changed by more than {initial_pressure_check.delta_manifold_pressure_failing_threshold} hPa! There is a MAIN LINE FAILURE!") in mp_logs
+
 def test_manifold_failing_no_LAST_RESORT(setup_initial_pressure_check, initial_pressure_check: InitialPressureCheck, mock_log_process: LogPressures):
     tanks = [MockTank("A", "test_Initial_Pressure_Check_rocket_pressure.csv"), MockTank("B", "test_Initial_Pressure_Check_rocket_pressure.csv")]
     initial_pressure_check.set_tanks(tanks)
@@ -320,7 +359,8 @@ def test_manifold_failing_no_LAST_RESORT(setup_initial_pressure_check, initial_p
     assert initial_pressure_check.tanks[0].state == TankState.CRITICAL
     assert initial_pressure_check.tanks[1].state == TankState.CRITICAL
 
-    #TODO: ADD LOG HERE
+    mp_logs = list(map(lambda elem: re.sub(r'\d{13}', '', elem), Process.multiprint.logs[Process.output_log.name])) #remove timestamps for testing
+    assert (f"T+  ms\tThe manifold pressure changed by more than {initial_pressure_check.delta_manifold_pressure_failing_threshold} hPa! There is a MAIN LINE FAILURE!") in mp_logs
 
 def test_manifold_unconnected_all_tanks_good(setup_initial_pressure_check, initial_pressure_check, mock_log_process: LogPressures):
     tanks = [MockTank("A", "test_Initial_Pressure_Check_all_good.csv"), MockTank("B", "test_Initial_Pressure_Check_all_good.csv"), MockTank("C", "test_Initial_Pressure_Check_all_good.csv")]

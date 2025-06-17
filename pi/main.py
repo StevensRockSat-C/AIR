@@ -24,7 +24,7 @@ sys.path.append(str(Path(__file__).parent.parent.absolute()))
 from pi.collection import Collection
 
 # ------------------------------ SETTINGS ------------------------------
-VERSION = "skeleton.2025.5.23"
+VERSION = "skeleton.2025.6.17"
 
 DEFAULT_BOOT_TIME = 35000   # The estimated time to boot and run the beginnings of the script, in MS. Will be used only if RTC is not live
 EXPECTED_POWER_ON_T_PLUS = -180000  # T-3 minute activation
@@ -207,7 +207,7 @@ from pi.utils import gswitch_callback
 GPIO.setup(GSWITCH_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.add_event_detect(GSWITCH_PIN, GPIO.FALLING,
                       callback=lambda channel: gswitch_callback(channel, GSWITCH_PIN), 
-                      bouncetime=100)
+                      bouncetime=500)
 
 # Setup our Tank objects
 tank_1 = Tank(valve_1, nova_tank_1)
@@ -238,12 +238,7 @@ swap_tanks_process.set_tanks([tank_1, tank_2])
 swap_tanks_process.run()
 # ----------------------------------------------------------------------
 
-# Temp Time Adjust
-# ----------------------------------------------------------------------
-# TODO: This process!
-# ----------------------------------------------------------------------
-
-#import sample upwards and vent hot air before we run sample upwards so we don't wait for imports before vent hot air
+# Import Sample Upwards and Vent Hot Air before we run sample upwards so we don't wait for imports before running Vent Hot Air
 from pi.processes.process_sample_upwards import SampleUpwards
 from pi.processes.process_vent_hot_air import VentHotAir
 

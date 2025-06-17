@@ -80,7 +80,7 @@ class Process(ABC):
             warn("Output log not set for Process! " + str(type(cls.output_log)))
         if not isinstance(cls.rtc, RTC):
             warn("RTC not set for Process! " + str(type(cls.rtc)))
-            cls.multiprint.p("RTC not set for Process! Time: " + str(round(time.time()*1000)) + " ms:", cls.output_log) # TODO: Use refactor timeMS() into Utils class
+            cls.multiprint.p("RTC not set for Process! Time: " + str(round(time.time()*1000)) + " ms.", cls.output_log)
         if not isinstance(cls.output_pressures, (TextIOWrapper, _TemporaryFileWrapper)):
             warn("Output pressures not set for Process! " + str(type(cls.output_pressures)))
             cls.multiprint.pform("Output pressures not set for Process!", cls.rtc.getTPlusMS(), cls.output_pressures)
