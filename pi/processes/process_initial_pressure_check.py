@@ -18,8 +18,10 @@ class InitialPressureCheck(Process):
         self.tanks: list[Tank] = []
         self.manifold_pressure: PressureSensor = None
         self.main_valve: Valve = None
+
         self.p_unsafe = 900 # hPa
         self.p_crit = 1050  # hPa
+        self.delta_manifold_pressure_failing_threshold: float = 300 # (hPa) The limit of change for which |ΔPmanifold| > must be to declare a main line failure
 
     def set_log_pressures(self, log_pressures_process: LogPressures):
         self.log_pressures = log_pressures_process
@@ -105,13 +107,17 @@ class InitialPressureCheck(Process):
             delta_manifold_pressure = new_manifold_pressure - ref_manifold_pressure
             Process.get_multiprint().pform("Manifold pressure is " + str(new_manifold_pressure) + " hPa, from " + str(ref_manifold_pressure) + " hPa. Delta " + str(delta_manifold_pressure) + " hPa.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
             
-            if abs(delta_manifold_pressure) > 100:
-                # TODO: Log here
+            if new_manifold_pressure == -1 or ref_manifold_pressure == -1:
+                Process.get_multiprint().pform(f"One or both of pressures taken from the manifold are -1: ({ref_manifold_pressure}, {new_manifold_pressure}). Will assume plumbing state is READY", Process.get_rtc().getTPlusMS(), Process.get_output_log())
+                Process.set_plumbing_state(PlumbingState.READY)
+            elif abs(delta_manifold_pressure) > self.delta_manifold_pressure_failing_threshold: # |ΔPmanifold| > 300 hPa?
+                Process.get_multiprint().pform(f"The manifold pressure changed by more than {self.delta_manifold_pressure_failing_threshold} hPa! There is a MAIN LINE FAILURE!", Process.get_rtc().getTPlusMS(), Process.get_output_log())
                 Process.set_plumbing_state(PlumbingState.MAIN_LINE_FAILURE)
             elif new_manifold_pressure > self.p_crit:
-                # TODO: Log here
+                Process.get_multiprint().pform(f"The manifold pressure is above {self.p_crit} hPa! There is a MAIN LINE FAILURE!", Process.get_rtc().getTPlusMS(), Process.get_output_log())
                 Process.set_plumbing_state(PlumbingState.MAIN_LINE_FAILURE)
             else:
+                Process.get_multiprint().pform(f"Plumbing state is READY.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
                 Process.set_plumbing_state(PlumbingState.READY)
         
         else:
