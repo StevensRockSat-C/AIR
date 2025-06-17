@@ -53,7 +53,7 @@ class InitialPressureCheck(Process):
             Process.get_multiprint().pform("LogPressures not set for Initial Pressure Check! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
             warn("LogPressures not set for Initial Pressure Check!")
             return False
-        if self.tanks is None:
+        if not self.tanks:
             Process.get_multiprint().pform("Tanks not set for Initial Pressure Check! Aborting Process.", Process.get_rtc().getTPlusMS(), Process.get_output_log())
             warn("Tanks not set for Initial Pressure Check!")
             return False
