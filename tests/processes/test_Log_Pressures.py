@@ -330,7 +330,53 @@ def test_cleanup_no_error(setup_process, log_pressures_instance):
     # Just ensure that calling cleanup() does not raise an exception.
     log_pressures_instance.cleanup()
 
+# -----------------------------------------
+# Sensor disconnection testing
+# -----------------------------------------
 
+def test_tank_temperature_sensor_disconnected(setup_process, log_pressures_instance: LogPressures,  mock_multiprint, mock_rtc, mock_pressures_log):
+    """Ensures we keep going even if a tank temperature sensor is offline"""
+    sensor1 = MockPressureTemperatureSensorStatic(-1, -1)
+    sensor2 = MockPressureTemperatureSensorStatic(1000, 200)
+    sensor3 = MockPressureTemperatureSensorStatic(1000, 110)
+
+    log_pressures_instance.set_pressure_sensors([sensor1, sensor2, sensor3])
+
+    dpv_temp_sensor = MockPressureTemperatureSensorStatic(1000, 101, triple_temperature = 100.1)
+    log_pressures_instance.set_dpv_temperature(dpv_temp_sensor)
+
+    sensor_canister = MockPressureSensorStatic(400)
+    log_pressures_instance.set_canister_pressure_sensor(sensor_canister)
+
+    log_pressures_instance.set_currently_sampling(False)
+    log_pressures_instance.set_temp_thresh_reached(False)
+
+    log_pressures_instance.run()   
+
+    
+    assert log_pressures_instance.get_temp_thresh_reached() == False #should keep going
+
+def test_dpv_temperature_sensor_disconnected(setup_process, log_pressures_instance: LogPressures,  mock_multiprint, mock_rtc, mock_pressures_log):
+    """Ensures we keep going even if dpv temperature sensor is offline"""
+    sensor1 = MockPressureTemperatureSensorStatic(1000, 210)
+    sensor2 = MockPressureTemperatureSensorStatic(1000, 200)
+    sensor3 = MockPressureTemperatureSensorStatic(1000, 110)
+
+    log_pressures_instance.set_pressure_sensors([sensor1, sensor2, sensor3])
+
+    dpv_temp_sensor = MockPressureTemperatureSensorStatic(-1, -1, triple_temperature = -1)
+    log_pressures_instance.set_dpv_temperature(dpv_temp_sensor)
+
+    sensor_canister = MockPressureSensorStatic(400)
+    log_pressures_instance.set_canister_pressure_sensor(sensor_canister)
+
+    log_pressures_instance.set_currently_sampling(True)
+    log_pressures_instance.set_temp_thresh_reached(False)
+
+    log_pressures_instance.run()   
+
+    
+    assert log_pressures_instance.get_temp_thresh_reached() == False #should keep going
 
 # -----------------------------------------
 # Profiling
