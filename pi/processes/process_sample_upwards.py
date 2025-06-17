@@ -209,8 +209,8 @@ class SampleUpwards(Process):
                                             Process.get_rtc().getTPlusMS(), Process.get_output_log())
                 c.tank.state = TankState.FAILED_SAMPLE
                 return
-            # CHANGE HERE                   -------------------------------------------------------------->
-            if abs(post_sample_tank_pressure - pre_sample_tank_pressure) < self.delta_pressure_threshold or post_sample_tank_pressure == -1 or pre_sample_tank_pressure == -1: # ΔPtank ≈ 0? (using triple pressure)
+            
+            if abs(post_sample_tank_pressure - pre_sample_tank_pressure) < self.delta_pressure_threshold or post_sample_tank_pressure == -1 or pre_sample_tank_pressure == -1: # ΔPtank ≈ 0? (using triple pressure) OR either pressure = -1
                 post_sample_manifold_pressure: float = self.manifold_pressure_sensor.triple_pressure
                 
                 if abs(post_sample_manifold_pressure - pre_sample_manifold_pressure) < self.delta_pressure_threshold: # ΔPmanifold ≈ 0? (using triple pressure) (Yes (An upstream valve has failed) (valvex state unknown))
@@ -253,7 +253,7 @@ class SampleUpwards(Process):
                                         Process.get_rtc().getTPlusMS(), Process.get_output_log())
             
             post_t_small_tank_pressure: float = c.tank.mprls.triple_pressure
-            if abs(post_t_small_tank_pressure - pre_t_small_tank_pressure) < self.delta_pressure_threshold or post_t_small_tank_pressure == -1 or pre_t_small_tank_pressure == -1: # ΔPtank ≈ 0? (using triple pressure) Yes (Vacuum of tank was compromised, but questionable sample)
+            if abs(post_t_small_tank_pressure - pre_t_small_tank_pressure) < self.delta_pressure_threshold or post_t_small_tank_pressure == -1 or pre_t_small_tank_pressure == -1: # ΔPtank ≈ 0? (using triple pressure) OR either pressure = -1 Yes (Vacuum of tank was compromised, but questionable sample)
                 Process.get_multiprint().pform(f"Tank {c.tank.valve.name} pressure ({pre_t_small_tank_pressure} -> {post_t_small_tank_pressure} hPa) did not change significantly during t_small test. This means that the vacuum of Tank {c.tank.valve.name} was compromised, but the sample is questionable. Failed Sample!",
                                             Process.get_rtc().getTPlusMS(), Process.get_output_log())
                 c.tank.state = TankState.FAILED_SAMPLE
