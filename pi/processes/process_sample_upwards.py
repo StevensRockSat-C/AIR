@@ -138,10 +138,11 @@ class SampleUpwards(Process):
                                             Process.get_rtc().getTPlusMS(), Process.get_output_log())
         
         ### BLEED
-        # Open VDynamic & VStatic
+        # Open VDynamic & VStatic & VMain (Change 6/19/25 for manifold leak)
         self.dynamic_valve.open()
         self.static_valve.open()
-        Process.get_multiprint().pform(f"Opened Dynamic Valve and Static Valve", 
+        self.main_valve.open()
+        Process.get_multiprint().pform(f"Opened Dynamic Valve, Static Valve, and Main Valve", 
                                             Process.get_rtc().getTPlusMS(), Process.get_output_log())
 
         bleed_start_time = Process.get_rtc().getTPlusMS()

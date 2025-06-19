@@ -24,7 +24,7 @@ sys.path.append(str(Path(__file__).parent.parent.absolute()))
 from pi.collection import Collection
 
 # ------------------------------ SETTINGS ------------------------------
-VERSION = "skeleton.2025.6.19"
+VERSION = "main.2025.6.19"
 
 DEFAULT_BOOT_TIME = 35000   # The estimated time to boot and run the beginnings of the script, in MS. Will be used only if RTC is not live
 EXPECTED_POWER_ON_T_PLUS = -180000  # T-3 minute activation
@@ -40,7 +40,7 @@ GSWITCH_PIN = 25            # G-switch input pin
 # Setup our Colleciton objects. All durations are going to be the minimum actuation time
 collection_1 = Collection(num = 1, # THESE NUMBERS EXTRACTED FROM THE OVERLEAF DOCUMENTATION (6/1/2025)
                           up_start_time = 16400,
-                          bleed_duration = 696, 
+                          bleed_duration = 3000, # Raised from 696ms to account for failing manifold
                           up_driving_pressure = 3290,
                           up_final_stagnation_pressure = 910,
                           choke_pressure = 1840,
