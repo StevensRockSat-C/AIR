@@ -24,7 +24,7 @@ sys.path.append(str(Path(__file__).parent.parent.absolute()))
 from pi.collection import Collection
 
 # ------------------------------ SETTINGS ------------------------------
-VERSION = "skeleton.2025.6.17"
+VERSION = "skeleton.2025.6.19"
 
 DEFAULT_BOOT_TIME = 35000   # The estimated time to boot and run the beginnings of the script, in MS. Will be used only if RTC is not live
 EXPECTED_POWER_ON_T_PLUS = -180000  # T-3 minute activation
@@ -202,13 +202,6 @@ log_pressures_process.set_dpv_temperature(dpv_temp_sensor)
 log_pressures_process.set_pressure_sensors([nova_manifold, nova_tank_1, nova_tank_2])
 log_pressures_process.run()
 
-# Setup the G-Switch listener
-from pi.utils import gswitch_callback
-GPIO.setup(GSWITCH_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-GPIO.add_event_detect(GSWITCH_PIN, GPIO.FALLING,
-                      callback=lambda channel: gswitch_callback(channel, GSWITCH_PIN), 
-                      bouncetime=500)
-
 # Setup our Tank objects
 tank_1 = Tank(valve_1, nova_tank_1)
 tank_2 = Tank(valve_2, nova_tank_2)
@@ -227,6 +220,15 @@ initial_pressure_check_process.set_log_pressures(log_pressures_process)
 initial_pressure_check_process.set_main_valve(valve_main)
 initial_pressure_check_process.set_manifold_pressure_sensor(nova_manifold)
 initial_pressure_check_process.run()
+# ----------------------------------------------------------------------
+
+# Setup the G-Switch listener
+# ----------------------------------------------------------------------
+from pi.utils import gswitch_callback
+GPIO.setup(GSWITCH_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.add_event_detect(GSWITCH_PIN, GPIO.FALLING,
+                      callback=lambda channel: gswitch_callback(channel, GSWITCH_PIN), 
+                      bouncetime=500)
 # ----------------------------------------------------------------------
 
 # Swap Tanks
