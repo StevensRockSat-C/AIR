@@ -162,7 +162,7 @@ class SampleUpwards(Process):
 
         bleed_start_time = Process.get_rtc().getTPlusMS()
         LogPressures.set_currently_sampling(False)
-        while Process.get_rtc().getTPlusMS() < (bleed_start_time + c.bleed_duration): #b time passed?
+        while Process.get_rtc().getTPlusMS() < (bleed_start_time + c.bleed_duration - self.t_main_bleed): #b time passed?
             self.log_pressures.run()
             if self.log_pressures.get_temp_thresh_reached(): # Threshold hit?
                 Process.get_multiprint().pform(f"Temp threshold hit! Aborting SampleUpwards.", 
