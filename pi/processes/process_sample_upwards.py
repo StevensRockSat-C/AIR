@@ -24,6 +24,7 @@ class SampleUpwards(Process):
         self.t_efficacy: float = 2000 # (milliseconds) Time for which to open the dynamic and main valves to measure driving pressure
         self.t_small: float = 100 # (milliseconds) The amount of time to 'test' the line to see if new sample is truly coming in, or if it was just stagnant pressure from the manifold
         self.delta_pressure_threshold: float = 50 # (hPa) The limit of change for which ΔP ≈ 0
+        self.t_main_bleed: float = 2300 # (milliseconds) How much to bleed the main line with Dynamic & Static FIRST
 
     def set_log_pressures(self, log_pressures_process: LogPressures):
         self.log_pressures = log_pressures_process
@@ -138,10 +139,25 @@ class SampleUpwards(Process):
                                             Process.get_rtc().getTPlusMS(), Process.get_output_log())
         
         ### BLEED
-        # Open VDynamic & VStatic
+        # Open VDynamic & VStatic & VMain (Change 6/19/25 for manifold leak)
         self.dynamic_valve.open()
         self.static_valve.open()
-        Process.get_multiprint().pform(f"Opened Dynamic Valve and Static Valve", 
+        self.main_valve.open()
+        Process.get_multiprint().pform(f"Opened Dynamic Valve, Static Valve, and Main Valve.", 
+                                            Process.get_rtc().getTPlusMS(), Process.get_output_log())
+        
+        main_valve_bleed_start_time = Process.get_rtc().getTPlusMS()
+        LogPressures.set_currently_sampling(False)
+        while Process.get_rtc().getTPlusMS() < (main_valve_bleed_start_time + self.t_main_bleed): # main_bleed time passed?
+            self.log_pressures.run()
+            if self.log_pressures.get_temp_thresh_reached(): # Threshold hit?
+                Process.get_multiprint().pform(f"Temp threshold hit! Aborting SampleUpwards.", 
+                                            Process.get_rtc().getTPlusMS(), Process.get_output_log())
+                return
+        del main_valve_bleed_start_time # Ensure this doesn't get accidentally reused
+
+        self.main_valve.close() # Close VMain
+        Process.get_multiprint().pform(f"Closed Main Valve.", 
                                             Process.get_rtc().getTPlusMS(), Process.get_output_log())
 
         bleed_start_time = Process.get_rtc().getTPlusMS()

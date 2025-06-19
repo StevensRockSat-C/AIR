@@ -708,12 +708,14 @@ def test_sampling_threshold_hit(monkeypatch, setup_process, sample_upwards_insta
     )
 
     class MockValveTempThresh(MockValve):
+        count = 0
         def __init__(self, pin, name):
             super().__init__(pin, name)
         
         def open(self):
             super().open()
-            LogPressures.set_temp_thresh_reached(True)
+            self.count += 1
+            if self.count == 2: LogPressures.set_temp_thresh_reached(True)
     
     sample_upwards_instance.set_log_pressures(mock_log_process)
     sample_upwards_instance.set_collections([collection])
