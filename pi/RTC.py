@@ -3,25 +3,76 @@ An implementation of the DS3231 RTC for T+ caculation
 '''
 
 import time
-import adafruit_ds3231
+from abc import ABC, abstractmethod
 
-class RTC:
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.absolute()))
+
+try:
+    import adafruit_ds3231
+except (ImportError, ModuleNotFoundError) as e:
+    adafruit_ds3231 = None
+
+class RTC(ABC):
+    """
+    Abstract base class for RTC sensors.
+    """
     
-    def __init__(self, i2c):
+    @abstractmethod
+    def isReady(self) -> bool:
+        pass
+    
+    @abstractmethod
+    def getT0(self) -> int:
+        pass
+    
+    @abstractmethod
+    def getT0MS(self) -> int:
+        pass
+    
+    @abstractmethod
+    def getTPlus(self) -> int:
+        pass
+    
+    @abstractmethod
+    def getTPlusMS(self) -> int:
+        pass
+    
+    @abstractmethod
+    def setEstT0(self, ref: int) -> int:
+        pass
+
+class RTCWrappedSensor(RTC):
+    
+    def __init__(self, i2c, activated_at_T_plus_ms: int = -180000):
+        """
+        A wrapper for the DS3231 RTC for T0 tracking.
+        Currently defaults to launch at T-180s.
+
+        Parameters
+        ----------
+        i2c : ExtendedI2C
+            i2c bus.
+        activated_at_T_plus_ms : int
+            How much to offset the T+plus reference. Simply specify when the payload is expected to turn on.
+            i.e. if you're set to 1.SYS.2 (standard activation), specify activated_at_T_plus_ms = 0
+            i.e. if you're set to 1.SYS.1 (early activation) at T-60s, specify specify activated_at_T_plus_ms = -60000
+
+        """
         self.ready = False
+        self.ref = round(time.time()*1000) # This is only used if the RTC can't be found
         
         try:
-            self.ref = round(time.time()*1000) # This is only used if the RTC can't be found
-            self.ds3231 = adafruit_ds3231.DS3231(i2c)
+            self.ds3231 = adafruit_ds3231.DS3231(i2c) # The oscillator should take an average of 2s to start and calibrate, from the datasheet. However, it seems it accounts for this interenally, so we WILL NOT add the 2 seconds ourselves.
             self.rtcTime = self.ds3231.datetime
             self.now = round(time.time()*1000) # Get a fresh reference time
-            self.tMinus60 = self.now - (((self.rtcTime.tm_min * 60) + self.rtcTime.tm_sec) * 1000) # The oscillator should take an average of 2s to start and calibrate, from the datasheet. However, it seems it accounts for this interenally, so we WILL NOT add the 2 seconds ourselves.
-            self.t0 = self.tMinus60 + 60000 # Estimate t0 from RBF at T-60
+            self.t0 = self.now - (((self.rtcTime.tm_min * 60) + self.rtcTime.tm_sec) * 1000) - activated_at_T_plus_ms 
             self.ready = True
         except:
             print("No RTC is on the i2c line?!")
             
-    def setRef(self, ref):
+    def setEstT0(self, ref):
         """
         Set the estimated T0 time if the RTC can't be found.
         
@@ -34,7 +85,6 @@ class RTC:
         prior_t0 = self.t0
         self.ref = ref
         self.t0 = ref
-        self.tMinus60 = self.t0 - 60000
         return self.t0 - prior_t0
             
     def isReady(self):
@@ -80,3 +130,33 @@ class RTC:
         if not self.ready:
             return round(time.time()*1000) - self.ref
         return round(time.time()*1000) - self.t0
+    
+class RTCFile(RTC):
+    """
+    Simulates an RTC for testing purposes.
+    """
+    
+    def __init__(self, start_time_ms: int):
+        self.ref = start_time_ms
+        self.t0 = start_time_ms
+        self.ready = True
+    
+    def isReady(self) -> bool:
+        return self.ready
+    
+    def getT0(self) -> int:
+        return round(self.t0 / 1000)
+    
+    def getT0MS(self) -> int:
+        return self.t0
+    
+    def getTPlus(self) -> int:
+        return round(time.time() - round(self.t0 / 1000))
+    
+    def getTPlusMS(self) -> int:
+        return round(time.time() * 1000) - self.t0
+    
+    def setEstT0(self, ref: int) -> int:
+        prior_t0 = self.t0
+        self.t0 = ref
+        return self.t0 - prior_t0
